@@ -7,6 +7,7 @@ import BackupRestore from '../js/backup_restore';
 import MigrationHandler from '../js/migration/migration_handler';
 import CONFIGURATOR from '../js/data_storage';
 import { GUI } from '../js/gui';
+import FC from '../js/fc';
 import ConnectionSerial from '../js/connection/connectionSerial';
 
 /**
@@ -90,6 +91,7 @@ export class FlashRestoreFlow {
 
         var portPollRetries = 0;
         var maxPortPollRetries = 60;
+        var restoreScheduled = false;
         var portPollInterval = setInterval(() => {
             portPollRetries++;
             if (portPollRetries > maxPortPollRetries) {
@@ -103,7 +105,8 @@ export class FlashRestoreFlow {
             }
 
             ConnectionSerial.getDevices().then((devices) => {
-                if (devices && devices.includes(restorePort)) {
+                if (!restoreScheduled && devices && devices.includes(restorePort)) {
+                    restoreScheduled = true;
                     clearInterval(portPollInterval);
                     $overlayStatus.text(i18n.getMessage('backupRestoreStatusConnecting'));
                     setTimeout(() => {
@@ -113,6 +116,8 @@ export class FlashRestoreFlow {
                         });
                     }, 2000);
                 }
+            }).catch((err) => {
+                console.warn('Port poll getDevices error:', err);
             });
         }, 500);
     }
@@ -287,13 +292,13 @@ export function executeRestore(port, baud, data, $overlay, { disconnectSafely, c
  */
 export function showMigrationPreview(summary, onContinue, onCancel) {
     var $preview     = $('#migration-preview-overlay');
-    var $continueBtn = $preview.find('.migration-preview-overlay__btn--continue');
-    var $cancelBtn   = $preview.find('.migration-preview-overlay__btn--cancel');
+    var $continueBtn = $preview.find('.migration-preview__btn--continue');
+    var $cancelBtn   = $preview.find('.migration-preview__btn--cancel');
 
-    $preview.find('.migration-preview-overlay__changes').text(
+    $preview.find('.migration-preview__changes').text(
         buildMigrationChangesText(summary)
     );
-    $preview.find('.migration-preview-overlay__warnings').text(
+    $preview.find('.migration-preview__warnings').text(
         summary.warnings.length > 0 ? summary.warnings.map(w => '⚠ ' + w).join('\n') : ''
     );
 
@@ -363,6 +368,9 @@ function showRestoreErrorDialog(errors, disconnectSafely) {
             GUI.log(i18n.getMessage('backupRestoreRestoreComplete'));
             $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreComplete'));
             disconnectSafely(function() { GUI.connect_lock = false; });
+        }).catch(function(err) {
+            console.error('saveAndReboot failed:', err);
+            disconnectSafely(function() { GUI.connect_lock = false; });
         });
     });
 
@@ -372,6 +380,9 @@ function showRestoreErrorDialog(errors, disconnectSafely) {
         BackupRestore.abortRestore().then(function() {
             GUI.log(i18n.getMessage('backupRestoreRestoreAborted'));
             $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreAborted'));
+            disconnectSafely(function() { GUI.connect_lock = false; });
+        }).catch(function(err) {
+            console.error('abortRestore failed:', err);
             disconnectSafely(function() { GUI.connect_lock = false; });
         });
     });
