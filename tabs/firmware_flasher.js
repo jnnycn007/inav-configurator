@@ -17,7 +17,7 @@ import mspQueue from './../js/serial_queue';
 import mspHelper from './../js/msp/MSPHelper';
 import STM32 from './../js/protocols/stm32';
 import STM32DFU from './../js/protocols/stm32usbdfu';
-import ConnectionSerial from './../js/connection/connectionSerial';
+
 import mspDeduplicationQueue from './../js/msp/mspDeduplicationQueue';
 import store from './../js/store';
 import dialog from '../js/dialog.js';

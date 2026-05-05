@@ -284,8 +284,12 @@ const MigrationHandler = {
         const fromVersion = this.extractBackupVersion(fileContent);
         if (!fromVersion || !targetVersion) return false;
 
-        const fromMajor = semver.major(semver.coerce(fromVersion));
-        const toMajor = semver.major(semver.coerce(targetVersion));
+        const fromCoerced = semver.coerce(fromVersion);
+        const toCoerced = semver.coerce(targetVersion);
+        if (!fromCoerced || !toCoerced) return false;
+
+        const fromMajor = semver.major(fromCoerced);
+        const toMajor = semver.major(toCoerced);
 
         if (toMajor <= fromMajor) return false;
 
