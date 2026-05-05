@@ -852,7 +852,8 @@ TABS.firmware_flasher.initialize = function (callback) {
             });
         });
 
-        $('a.open_backups_folder').on('click', function () {
+        $('a.open_backups_folder').on('click', function (e) {
+            e.preventDefault();
             window.electronAPI.openBackupDir();
         });
 
