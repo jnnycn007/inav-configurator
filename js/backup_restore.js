@@ -59,6 +59,8 @@ const BackupRestore = {
                     if (timeoutHandle) {
                         clearTimeout(timeoutHandle);
                     }
+                    CONFIGURATOR.connection.removeOnReceiveCallback(this._receiveCallback);
+                    this._receiveCallback = null;
                     resolve();
                 }
             };

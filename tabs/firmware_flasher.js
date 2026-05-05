@@ -713,6 +713,7 @@ TABS.firmware_flasher.initialize = function (callback) {
                         }
 
                         function proceedWithFlash() {
+                        BackupRestore.clearLastAutoBackup();
 
                         function onFlashComplete() {
                             if (targetVersion && FC.CONFIG) {
