@@ -26,6 +26,7 @@ import ltmDecoder from './ltmDecoder';
 import mspDeduplicationQueue from './msp/mspDeduplicationQueue';
 import store from './store';
 import cliTab from '../tabs/cli';
+import javascriptProgrammingTab from '../tabs/javascript_programming';
 
 var SerialBackend = (function () {
 
@@ -190,6 +191,41 @@ var SerialBackend = (function () {
                             CONFIGURATOR.connection.connect(selected_port, {bitrate: selected_baud}, privateScope.onOpen);
                         }
                     } else {
+                        // Check for unsaved changes in JavaScript Programming tab
+                        if (GUI.active_tab === 'javascript_programming' &&
+                            TABS.javascript_programming &&
+                            TABS.javascript_programming.isDirty) {
+                            console.log('[Disconnect] Checking for unsaved changes in JavaScript Programming tab');
+                            const confirmMsg = i18n.getMessage('unsavedChanges') ||
+                                'You have unsaved changes. Leave anyway?';
+
+                            if (!confirm(confirmMsg)) {
+                                console.log('[Disconnect] User cancelled disconnect due to unsaved changes');
+                                return; // Cancel disconnect
+                            }
+                            console.log('[Disconnect] User confirmed, proceeding with disconnect');
+                            // Clear isDirty flag so tab switch during disconnect doesn't show warning again
+                            TABS.javascript_programming.isDirty = false;
+                        }
+
+=======
+                        // Check for unsaved changes in JavaScript Programming tab
+                        if (GUI.active_tab === javascriptProgrammingTab &&
+                            javascriptProgrammingTab.isDirty) {
+                            console.log('[Disconnect] Checking for unsaved changes in JavaScript Programming tab');
+                            const confirmMsg = i18n.getMessage('unsavedChanges') ||
+                                'You have unsaved changes. Leave anyway?';
+
+                            if (!confirm(confirmMsg)) {
+                                console.log('[Disconnect] User cancelled disconnect due to unsaved changes');
+                                return; // Cancel disconnect
+                            }
+                            console.log('[Disconnect] User confirmed, proceeding with disconnect');
+                            // Clear isDirty flag so tab switch during disconnect doesn't show warning again
+                            javascriptProgrammingTab.isDirty = false;
+                        }
+
+>>>>>>> 74465c9bcf (fix: resolve remaining broken API references after tab-modules merge)
                         if (this.isDemoRunning) {
                             SITLProcess.stop();
                             this.isDemoRunning = false;

@@ -313,7 +313,7 @@ receiverTab.initialize = function (callback) {
             var mspWin = window.open("tabs/receiver_msp.html", "receiver_msp", "width=420,height=760,menubar=no,contextIsolation=no,nodeIntegration=yes");
             
             mspWin.window.setRawRx = function (channels) {
-                if (CONFIGURATOR.connectionValid && GUI.active_tab != 'cli') {
+                if (CONFIGURATOR.connectionValid && !CONFIGURATOR.cliActive) {
                     mspHelper.setRawRx(channels);
                     return true;
                 } else {
