@@ -335,7 +335,7 @@ ledStripTab.initialize = function (callback, scrollPosition) {
 
                 if ($(that).is('.color-' + colorIndex)) {
                     selectedColorIndex = colorIndex;
-                    if (selectedModeColor == undefined)
+                    if (selectedModeColor == undefined) {
                         $('.ui-selected').addClass('color-' + colorIndex);
 
                         // Auto-add Color function if LED has no base function
