@@ -13,7 +13,6 @@ import BitHelper from './../js/bitHelper';
 import store from '../js/store';
 
 const sensorsTab = {};
-
 sensorsTab.initialize = function (callback) {
     var self = this;
 

@@ -14,16 +14,18 @@ import mspDeduplicationQueue from './../js/msp/mspDeduplicationQueue';
 import FC from './../js/fc';
 import { generateFilename } from './../js/helpers';
 import dialog from '../js/dialog';
-import interval from '../js/intervals';
 
-const cliTab = {};
+const cliTab = {
+    lineDelayMs: 50,
+    profileSwitchDelayMs: 100,
+    outputHistory: "",
+    cliBuffer: "",
+    GUI: {
+        snippetPreviewWindow: null,
+    },
+};
 
-cliTab.lineDelayMs = 50;
-cliTab.profileSwitchDelayMs = 100;
-cliTab.outputHistory = "";
-cliTab.cliBuffer = "";
 cliTab.nextTab = null;
-cliTab.GUI = { snippetPreviewWindow: null };
 
 function removePromptHash(promptText) {
     return promptText.replace(/^# /, '');
@@ -88,6 +90,7 @@ function copyToClipboard(text) {
 
 cliTab.initialize = function (callback) {
     var self = this;
+    self.nextTab = null;
 
     if (GUI.active_tab !== this) {
         GUI.active_tab = this;
@@ -98,15 +101,10 @@ cliTab.initialize = function (callback) {
     mspDeduplicationQueue.flush();
     MSP.callbacks_cleanup();
 
-    interval.killAll();
-
     self.outputHistory = "";
     self.cliBuffer = "";
-    self.nextTab = null;
 
-    const clipboardCopySupport = (() => {
-        return false;    
-    })();
+    const clipboardCopySupport = !!(navigator.clipboard?.writeText) || document.queryCommandSupported?.('copy');
 
 
     function executeCommands(out_string) {
@@ -485,7 +483,6 @@ cliTab.read = function (readInfo) {
             GUI.log(i18n.getMessage('cliReboot'));
             GUI.log(i18n.getMessage('deviceRebooting'));
             GUI.handleReconnect(cliTab.nextTab || false);
-            cliTab.cleanup();
         }
 
     }
@@ -534,15 +531,15 @@ cliTab.exit = function(nextTab) {
 
 cliTab.cleanup = function (callback) {
     if (!(CONFIGURATOR.connectionValid && CONFIGURATOR.cliValid && CONFIGURATOR.cliActive)) {
-        callback?.()
+        if (callback) callback();
         return;
     }
-    
+
     CONFIGURATOR.cliActive = false;
     CliAutoComplete.cleanup();
     $(CliAutoComplete).off();
-    
-    callback?.()
+
+    if (callback) callback();
 };
 
 export default cliTab;

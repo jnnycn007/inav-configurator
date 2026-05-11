@@ -13,7 +13,6 @@ import store from './../js/store';
 
 
 const loggingTab = {};
-
 loggingTab.initialize = function (callback) {
     var self = this;
 

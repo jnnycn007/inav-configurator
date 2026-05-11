@@ -18,6 +18,7 @@ configurationTab.initialize = function (callback, scrollPosition) {
 
     if (GUI.active_tab !== this) {
         GUI.active_tab = this;
+
     }
 
     var loadChainer = new MSPChainerClass();
@@ -67,14 +68,14 @@ configurationTab.initialize = function (callback, scrollPosition) {
     function reinitialize() {
         //noinspection JSUnresolvedVariable
         GUI.log(i18n.getMessage('deviceRebooting'));
-        GUI.handleReconnect(true);
+        GUI.handleReconnect($('.tab_configuration a'));
     }
 
     function load_html() {
         import('./configuration.html?raw').then(({default: html}) => GUI.load(html, Settings.processHtml(process_html)));
     }
 
-    function process_html() {
+    function process_html(settingsPromise) {
 
         let i;
 
@@ -162,9 +163,7 @@ configurationTab.initialize = function (callback, scrollPosition) {
 
             var vtx_power = $('#vtx_power');
             vtx_power.empty();
-            var minPower = VTX.getMinPower(FC.VTX_CONFIG.device_type);
-            var maxPower = VTX.getMaxPower(FC.VTX_CONFIG.device_type);
-            for (var ii = minPower; ii <= maxPower; ii++) {
+            for (var ii = FC.VTX_CONFIG.power_min; ii <= FC.VTX_CONFIG.power_count; ii++) {
                 var option = $('<option value="' + ii + '">' + ii + '</option>');
                 if (ii == FC.VTX_CONFIG.power) {
                     option.prop('selected', true);
@@ -262,7 +261,12 @@ configurationTab.initialize = function (callback, scrollPosition) {
 
         });
 
-        $i2cSpeed.trigger('change');
+        // Wait for settings to load before triggering change event
+        settingsPromise.then(function() {
+            $i2cSpeed.trigger('change');
+        }).catch(function(error) {
+            console.error('Settings load failed, I2C speed change not triggered:', error);
+        });
 
         $('a.save').on('click', function () {
             //UPDATE: moved to GPS tab and hidden

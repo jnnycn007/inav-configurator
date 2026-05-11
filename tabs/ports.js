@@ -302,7 +302,7 @@ portsTab.initialize = function (callback) {
 
         function on_reboot_success_handler() {
             GUI.log(i18n.getMessage('deviceRebooting'));
-            GUI.handleReconnect(true);
+            GUI.handleReconnect($('.tab_ports a'));
         }
     }
 };
@@ -322,6 +322,7 @@ function updateDefaultBaud(baudSelect, column) {
 }
 
 portsTab.cleanup = function (callback) {
+    $('.jBox-wrapper').remove();
     if (callback) callback();
 };
 

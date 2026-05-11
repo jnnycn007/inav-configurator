@@ -14,10 +14,8 @@ import interval from './../js/intervals';
 const adjustmentsTab = {};
 
 adjustmentsTab.initialize = function (callback) {
-    
-    if (GUI.active_tab !== this) {
-        GUI.active_tab = this;
-    }
+    GUI.active_tab_ref = this;
+    GUI.active_tab = this;
 
     MSP.send_message(MSPCodes.MSP_ADJUSTMENT_RANGES, false, false, get_rc_data);
 

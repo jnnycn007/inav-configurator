@@ -5,6 +5,7 @@ import i18n from './../js/localization';
 
 const searchTab = { };
 
+
 const tabNames = [
  "adjustments",
  "advanced_tuning",
@@ -37,7 +38,7 @@ const tabNames = [
 ];
 
 
-searchTab.searchMessages = function (keyword) {
+  searchTab.searchMessages = function (keyword) {
     var resultsDiv = document.getElementById('search-results');
     keyword = keyword.toLowerCase();
     resultsDiv.innerHTML = '';
@@ -82,7 +83,7 @@ searchTab.searchMessages = function (keyword) {
   }
   
   
-searchTab.getMessages = function () {
+  searchTab.getMessages = function () {
     import(`../locale/en/messages.json`).then(({default: messages}) => {
         this.messages = messages;
     }).catch(error => {
@@ -91,7 +92,7 @@ searchTab.getMessages = function () {
 
   }
   
-searchTab.geti18nHTML = function (filename, filecontents) {
+  searchTab.geti18nHTML = function (filename, filecontents) {
   
     const parser = new DOMParser();
     const htmlDoc = parser.parseFromString(filecontents, 'text/html');
@@ -124,7 +125,7 @@ searchTab.geti18nHTML = function (filename, filecontents) {
   }
 
 
-searchTab.geti18nJs = function (filename, filecontents) {
+  searchTab.geti18nJs = function (filename, filecontents) {
     var re = /(?:data-i18n=|i18n.getMessage\()["']([^"']*)['"]/g
  
     let match;
@@ -148,7 +149,7 @@ searchTab.geti18nJs = function (filename, filecontents) {
     }).catch(error => console.error(`Failed to index HTML for tab ${tabName}:`, error));;
 
   };
- 
+  
 
 searchTab.initialize = function (callback) {
     var self = this;
@@ -161,12 +162,12 @@ searchTab.initialize = function (callback) {
     }
 
     function searchKeyword() {
-    searchTab.searchMessages(document.getElementById('search-keyword').value);
+      searchTab.searchMessages(document.getElementById('search-keyword').value);
     }
 
     function searchKeywordTyping() {
       if (document.getElementById('search-keyword').value.length > 2) {
-      searchTab.searchMessages(document.getElementById('search-keyword').value);
+        searchTab.searchMessages(document.getElementById('search-keyword').value);
       }
     }
     import('./search.html?raw').then(({default: html}) => GUI.load(html, function () {

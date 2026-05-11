@@ -14,12 +14,11 @@ import { mixer, PLATFORM } from './../js/model';
 import timeout from './../js/timeouts';
 import interval from './../js/intervals';
 
-const outputsTab = {};
-
-outputsTab.allowTestMode = false;
-outputsTab.feature3DEnabled = false;
-outputsTab.feature3DSupported = false;
-
+const outputsTab = {
+    allowTestMode: false,
+    feature3DEnabled: false,
+    feature3DSupported: false
+};
 outputsTab.initialize = function (callback) {
     var self = this;
 
@@ -389,7 +388,7 @@ outputsTab.initialize = function (callback) {
                 GUI.tab_switch_cleanup(function () {
                     MSP.send_message(MSPCodes.MSP_SET_REBOOT, false, false, function () {
                         GUI.log(i18n.getMessage('deviceRebooting'));
-                        GUI.handleReconnect(true);
+                        GUI.handleReconnect($('.tab_outputs a'));
                     });
                 });
             });

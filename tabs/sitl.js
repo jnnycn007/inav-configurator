@@ -87,7 +87,6 @@ const stdProfiles = [
 var SITL_LOG = "";
 
 const sitlTab = {};
-
 sitlTab.initialize = (callback) => {
  
     if (GUI.active_tab !== this) {

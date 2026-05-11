@@ -17,11 +17,54 @@ import mspQueue from './../js/serial_queue';
 import mspHelper from './../js/msp/MSPHelper';
 import STM32 from './../js/protocols/stm32';
 import STM32DFU from './../js/protocols/stm32usbdfu';
+import ConnectionSerial from './../js/connection/connectionSerial';
 import mspDeduplicationQueue from './../js/msp/mspDeduplicationQueue';
 import store from './../js/store';
 import dialog from '../js/dialog.js';
+import BackupRestore from './../js/backup_restore';
+import MigrationHandler from './../js/migration/migration_handler';
 
 const firmwareFlasherTab = {};
+
+// Normalize target names to underscores for consistent dictionary lookups.
+// Hyphens supported as workaround for 9.0.0 filename inconsistency.
+function normalizeTargetName(name) {
+    if (name == null) return '';
+    return String(name).replace(/-/g, '_');
+}
+
+/**
+ * Disconnect with a timeout fallback.
+ * After save/exit the FC reboots and the serial port may vanish before
+ * the disconnect callback fires, which would leave connect_lock stuck.
+ */
+function disconnectSafely(callback) {
+    var done = false;
+    var fallback = setTimeout(function() {
+        if (!done) {
+            done = true;
+            console.warn('Disconnect timed out, forcing unlock');
+            callback();
+        }
+    }, 3000);
+
+    try {
+        CONFIGURATOR.connection.disconnect(function() {
+            if (!done) {
+                done = true;
+                clearTimeout(fallback);
+                callback();
+            }
+        });
+    } catch (e) {
+        if (!done) {
+            done = true;
+            clearTimeout(fallback);
+            console.warn('Disconnect threw:', e);
+            callback();
+        }
+    }
+}
 
 firmwareFlasherTab.initialize = function (callback) {
 
@@ -31,6 +74,7 @@ firmwareFlasherTab.initialize = function (callback) {
 
     var intel_hex = false, // standard intel hex in string format
         parsed_hex = false, // parsed raw hex in array format
+        localFirmwareLoaded = false, // true when firmware loaded from local file
         fileName = "inav.hex";
 
     import('./firmware_flasher.html?raw').then(({default: html}) => GUI.load(html, function () {
@@ -73,7 +117,7 @@ firmwareFlasherTab.initialize = function (callback) {
             //var targetFromFilenameExpression = /inav_([\d.]+)?_?([^.]+)\.(.*)/;
             // inav_8.0.0_TUNERCF405_dev-20240617-88fb1d0.hex
             // inav_8.0.0_TUNERCF405_ci-20240617-88fb1d0.hex
-            var targetFromFilenameExpression = /^inav_(\d+)([\d.]+)_([A-Za-z0-9_]+)_(ci|dev)-(\d{4})(\d{2})(\d{2})-(\w+)\.(hex)$/;
+            var targetFromFilenameExpression = /^inav_(\d+)([\d.]+)_([A-Za-z0-9_-]+)_(ci|dev)-(\d{4})(\d{2})(\d{2})-(\w+)\.(hex)$/;
             var match = targetFromFilenameExpression.exec(filename);
 
             if (!match) {
@@ -81,9 +125,10 @@ firmwareFlasherTab.initialize = function (callback) {
                 return null;
             }
 
+            var rawMatch = match[3];  // e.g., "TBS-LUCID-H7-WING" or "TBS_LUCID_H7_WING"
             return {
-                raw_target: match[3],
-                target: match[3].replace("_", " "),
+                target_id: normalizeTargetName(rawMatch),
+                target: rawMatch.replace(/_/g, " ").replace(/-/g, " "),  // Display: "TBS LUCID H7 WING"
                 format: match[9],
                 version: match[1]+match[2],
                 major: match[1]
@@ -101,9 +146,10 @@ firmwareFlasherTab.initialize = function (callback) {
 
             //GUI.log("non dev: match[2]: " + match[2] + " match[3]: " + match[3]);
 
+            var rawMatch = match[2];  // e.g., "MATEKF405" or "MATEK-F405"
             return {
-                raw_target: match[2],
-                target: match[2].replace("_", " "),
+                target_id: normalizeTargetName(rawMatch),
+                target: rawMatch.replace(/_/g, " ").replace(/-/g, " "),  // Display: "MATEKF405"
                 format: match[3],
             };
         }
@@ -116,7 +162,7 @@ firmwareFlasherTab.initialize = function (callback) {
             if (selectedTarget === "0") {
                 firmwareFlasherTab.getTarget();
             } else {
-                $('select[name="board"] option[value=' + selectedTarget + ']').attr("selected", "selected");
+                $('select[name="board"] option[value="' + selectedTarget + '"]').attr("selected", "selected");
                 $('select[name="board"]').trigger('change');
             }
         });
@@ -159,8 +205,8 @@ firmwareFlasherTab.initialize = function (callback) {
                     if ((!showDevReleases && release.prerelease) || !result) {
                         return;
                     }
-                    if($.inArray(result.target, unsortedTargets) == -1) {
-                        unsortedTargets.push(result.target);
+                    if($.inArray(result.target_id, unsortedTargets) == -1) {
+                        unsortedTargets.push(result.target_id);
                     }
                 });
             });
@@ -171,8 +217,10 @@ firmwareFlasherTab.initialize = function (callback) {
                     release.assets.forEach(function (asset) {
                         var result = parseDevFilename(asset.name);
 
-                        if (result && $.inArray(result.target, unsortedTargets) == -1) {
-                            unsortedTargets.push(result.target);
+                        if (result) {
+                            if ($.inArray(result.target_id, unsortedTargets) == -1) {
+                                unsortedTargets.push(result.target_id);
+                            }
                         }
                     });
                 });
@@ -215,13 +263,16 @@ firmwareFlasherTab.initialize = function (callback) {
                         "version"   : release.tag_name,
                         "url"       : asset.browser_download_url,
                         "file"      : asset.name,
-                        "raw_target": result.raw_target,
+                        "target_id" : result.target_id,
                         "target"    : result.target,
                         "date"      : formattedDate,
                         "notes"     : release.body,
                         "status"    : release.prerelease ? "release-candidate" : "stable"
                     };
-                    releases[result.target].push(descriptor);
+                    // Skip duplicate entries (e.g. both hyphen and underscore variants of same target+version)
+                    if (!releases[result.target_id].some(d => d.version === descriptor.version && d.status === descriptor.status)) {
+                        releases[result.target_id].push(descriptor);
+                    }
                 });
             });
 
@@ -269,13 +320,16 @@ firmwareFlasherTab.initialize = function (callback) {
                             "version"   : release.tag_name,
                             "url"       : asset.browser_download_url,
                             "file"      : asset.name,
-                            "raw_target": result.raw_target,
+                            "target_id" : result.target_id,
                             "target"    : result.target,
                             "date"      : formattedDate,
                             "notes"     : release.body,
                             "status"    : release.prerelease ? "nightly" : "stable"
                         };
-                        releases[result.target].push(descriptor);
+                        // Skip duplicate entries (e.g. both hyphen and underscore variants of same target+version)
+                        if (!releases[result.target_id].some(d => d.version === descriptor.version && d.status === descriptor.status)) {
+                            releases[result.target_id].push(descriptor);
+                        }
                     });
                 });
             }
@@ -290,7 +344,7 @@ firmwareFlasherTab.initialize = function (callback) {
                             selectTargets.push(target);
                             var select_e =
                                     $("<option value='{0}'>{1}</option>".format(
-                                            descriptor.raw_target,
+                                            descriptor.target_id,
                                             descriptor.target
                                     )).data('summary', descriptor);
                             boards_e.append(select_e);
@@ -324,7 +378,8 @@ firmwareFlasherTab.initialize = function (callback) {
             $('select[name="board"]').on('change', function () {
 
                 $("a.load_remote_file").addClass('disabled');
-                var target = $(this).children("option:selected").text();
+                var target = $(this).children("option:selected").val();
+                var targetDisplay = $(this).children("option:selected").text();
 
                 if (!GUI.connect_lock) {
                     $('.progress').val(0).removeClass('valid invalid');
@@ -337,20 +392,22 @@ firmwareFlasherTab.initialize = function (callback) {
                     if(target == 0) {
                         versions_e.append($("<option value='0'>{0}</option>".format(i18n.getMessage('firmwareFlasherOptionLabelSelectFirmwareVersion'))));
                     } else {
-                        versions_e.append($("<option value='0'>{0} {1}</option>".format(i18n.getMessage('firmwareFlasherOptionLabelSelectFirmwareVersionFor'), target)));
+                        versions_e.append($("<option value='0'>{0} {1}</option>".format(i18n.getMessage('firmwareFlasherOptionLabelSelectFirmwareVersionFor'), targetDisplay)));
                     }
 
-                    firmwareFlasherTab.releases[target].forEach(function(descriptor) {
-                        var select_e =
-                                $("<option value='{0}'>{0} - {1} - {2} ({3})</option>".format(
-                                        descriptor.version,
-                                        descriptor.target,
-                                        descriptor.date,
-                                        descriptor.status
-                                )).data('summary', descriptor);
+                    if (typeof firmwareFlasherTab.releases[target]?.forEach === 'function') {
+                        firmwareFlasherTab.releases[target].forEach(function(descriptor) {
+                            var select_e =
+                                    $("<option value='{0}'>{0} - {1} - {2} ({3})</option>".format(
+                                            descriptor.version,
+                                            descriptor.target,
+                                            descriptor.date,
+                                            descriptor.status
+                                    )).data('summary', descriptor);
 
-                        versions_e.append(select_e);
-                    });
+                            versions_e.append(select_e);
+                        });
+                    }
                 }
             });
 
@@ -397,6 +454,7 @@ firmwareFlasherTab.initialize = function (callback) {
                         parsed_hex = data;
 
                         if (parsed_hex) {
+                            localFirmwareLoaded = true;
                             $('a.flash_firmware').removeClass('disabled');
 
                             $('span.progressLabel').text('Loaded Local Firmware: (' + parsed_hex.bytes_total + ' bytes)');
@@ -433,6 +491,7 @@ firmwareFlasherTab.initialize = function (callback) {
 
             function process_hex(data, summary) {
                 intel_hex = data;
+                localFirmwareLoaded = false;
 
                 parse_hex(intel_hex, function (data) {
                     parsed_hex = data;
@@ -513,14 +572,368 @@ firmwareFlasherTab.initialize = function (callback) {
             }
         });
 
+        function showBackupSavedMessage(messageKey) {
+            $('span.progressLabel').html(
+                i18n.getMessage(messageKey) +
+                ' <a class="open_backup_dir" href="#">' +
+                i18n.getMessage('backupRestoreOpenBackupsFolder') + '</a>'
+            );
+            $('.open_backup_dir').on('click', function(e) {
+                e.preventDefault();
+                window.electronAPI.openBackupDir();
+            });
+        }
+
+        function buildMigrationChangesText(summary) {
+            var sections = [
+                { key: 'removedSettings', header: 'migrationPreviewRemovedHeader' },
+                { key: 'renamedSettings', header: 'migrationPreviewRenamedSettingsHeader' },
+                { key: 'renamedCommands', header: 'migrationPreviewRenamedCommandsHeader' },
+                { key: 'valueReplacements', header: 'migrationPreviewValueReplacementsHeader' },
+                { key: 'settingRemappings', header: 'migrationPreviewSettingRemappingsHeader' },
+            ];
+            var lines = [];
+            for (var s = 0; s < sections.length; s++) {
+                var items = summary[sections[s].key];
+                if (items && items.length > 0) {
+                    if (lines.length > 0) lines.push('');
+                    lines.push(i18n.getMessage(sections[s].header, [items.length.toString()]));
+                    for (var j = 0; j < items.length; j++) {
+                        lines.push('  • ' + items[j]);
+                    }
+                }
+            }
+            return lines.join('\n');
+        }
+
+        function showMigrationPreview(summary, onContinue, onCancel) {
+            var $preview = $('#migration-preview-overlay');
+            var $changes = $preview.find('.migration-preview__changes');
+            var $warnings = $preview.find('.migration-preview__warnings');
+            var $continueBtn = $preview.find('.migration-preview__btn--continue');
+            var $cancelBtn = $preview.find('.migration-preview__btn--cancel');
+
+            $preview.find('.migration-preview__subtitle').text(
+                i18n.getMessage('migrationPreviewSubtitle', [summary.fromVersion, summary.toVersion])
+            );
+            $changes.text(buildMigrationChangesText(summary));
+
+            if (summary.warnings.length > 0) {
+                $warnings.text(summary.warnings.map(function(w) { return '⚠ ' + w; }).join('\n'));
+            } else {
+                $warnings.text('');
+            }
+
+            $preview.removeClass('is-hidden');
+            i18n.localize($preview);
+
+            function cleanup() {
+                $continueBtn.off('click.migPreview');
+                $cancelBtn.off('click.migPreview');
+                $preview.addClass('is-hidden');
+            }
+
+            $cancelBtn.on('click.migPreview', function(e) {
+                e.preventDefault();
+                cleanup();
+                onCancel();
+            });
+
+            $continueBtn.on('click.migPreview', function(e) {
+                e.preventDefault();
+                cleanup();
+                onContinue();
+            });
+        }
+
         $('a.flash_firmware').on('click', function () {
             if (!$(this).hasClass('disabled')) {
                 if (!GUI.connect_lock) { // button disabled while flashing is in progress
                     if (parsed_hex != false) {
                         var options = {};
+                        var skipAutoRestore = false;
 
                         if ($('input.erase_chip').is(':checked')) {
                             options.erase_chip = true;
+                        }
+
+                        var originalPort = String($('div#port-picker #port').val());
+                        var originalBaud = parseInt($('div#port-picker #baud').val());
+
+                        var currentVersion = (FC.CONFIG && FC.CONFIG.flightControllerVersion) ? FC.CONFIG.flightControllerVersion : null;
+                        var selectedSummary = $('select[name="firmware_version"] option:selected').data('summary');
+                        var targetVersion = (!localFirmwareLoaded && selectedSummary) ? semver.clean(selectedSummary.version) : null;
+                        var isMinorOrMajorUpdate = false;
+
+                        if (currentVersion && targetVersion && semver.valid(currentVersion) && semver.valid(targetVersion)) {
+                            var diffType = semver.diff(currentVersion, targetVersion);
+                            if (diffType && diffType !== 'patch' && diffType !== 'prepatch' && diffType !== 'prerelease') {
+                                isMinorOrMajorUpdate = true;
+                            }
+                        }
+
+                        if (isMinorOrMajorUpdate && !options.erase_chip) {
+                            showVersionWarning(currentVersion, targetVersion, function onContinue() {
+                                skipAutoRestore = true;
+                                proceedWithFlash();
+                            });
+                            return; // wait for user decision
+                        }
+
+                        proceedWithFlash();
+                        return;
+
+                        function showVersionWarning(fromVer, toVer, onContinue) {
+                            var $warn = $('#version-warning-overlay');
+                            $warn.find('.version-warning-overlay__text').text(
+                                i18n.getMessage('firmwareFlasherVersionWarningText', [fromVer, toVer])
+                            );
+                            $warn.removeClass('is-hidden');
+                            i18n.localize($warn);
+
+                            var $continueBtn = $warn.find('.version-warning-overlay__btn--continue');
+                            var $cancelBtn = $warn.find('.version-warning-overlay__btn--cancel');
+
+                            function cleanup() {
+                                $continueBtn.off('click.versionWarn');
+                                $cancelBtn.off('click.versionWarn');
+                                $warn.addClass('is-hidden');
+                            }
+
+                            $cancelBtn.on('click.versionWarn', function(e) {
+                                e.preventDefault();
+                                cleanup();
+                            });
+
+                            $continueBtn.on('click.versionWarn', function(e) {
+                                e.preventDefault();
+                                cleanup();
+                                onContinue();
+                            });
+                        }
+
+                        function proceedWithFlash() {
+
+                        function onFlashComplete() {
+                            if (targetVersion && FC.CONFIG) {
+                                FC.CONFIG.flightControllerVersion = targetVersion;
+                            }
+
+                            var backup = BackupRestore.getLastAutoBackup();
+                            if (backup) {
+                                GUI.log(i18n.getMessage('backupRestoreAutoBackupSaved', [backup.filePath]));
+
+                                var backupVersion = MigrationHandler.extractBackupVersion(backup.data);
+                                var isMajorDowngrade = false;
+                                if (backupVersion && targetVersion && semver.valid(backupVersion) && semver.valid(targetVersion)) {
+                                    if (semver.major(backupVersion) > semver.major(targetVersion)) {
+                                        isMajorDowngrade = true;
+                                    }
+                                }
+
+                                if (!targetVersion) {
+                                    showBackupSavedMessage('backupRestoreFlashCompleteBackupSaved');
+                                    BackupRestore.clearLastAutoBackup();
+                                } else if (isMajorDowngrade) {
+                                    GUI.log(i18n.getMessage('backupRestoreDowngradeNoAutoRestore'));
+                                    showBackupSavedMessage('backupRestoreDowngradeNoAutoRestore');
+                                    BackupRestore.clearLastAutoBackup();
+                                } else if (options.erase_chip && !skipAutoRestore) {
+                                    var migrationNeeded = targetVersion && MigrationHandler.isMigrationNeeded(backup.data, targetVersion);
+                                    var missingProfiles = targetVersion && MigrationHandler.hasMissingProfiles(backup.data, targetVersion);
+                                    var migrationResult = null;
+                                    var dataToRestore = backup.data;
+
+                                    if (migrationNeeded) {
+                                        migrationResult = MigrationHandler.migrateBackupData(backup.data, targetVersion);
+                                        dataToRestore = migrationResult.migratedContent;
+                                    }
+
+                                    if (missingProfiles) {
+                                        if (!migrationResult) {
+                                            var backupVer = MigrationHandler.extractBackupVersion(backup.data) || 'unknown';
+                                            migrationResult = MigrationHandler.createEmptyResult(backupVer, targetVersion, dataToRestore);
+                                        }
+                                        migrationResult.summary.warnings.push(
+                                            i18n.getMessage('migrationMissingProfileWarning', [
+                                                migrationResult.summary.fromVersion,
+                                                migrationResult.summary.toVersion,
+                                            ])
+                                        );
+                                    }
+
+                                    if (migrationResult && (migrationResult.summary.totalChanges > 0 || migrationResult.summary.warnings.length > 0)) {
+                                        showMigrationPreview(migrationResult.summary, function onContinue() {
+                                            GUI.log(i18n.getMessage('backupRestoreMigrationApplied', [
+                                                migrationResult.summary.fromVersion,
+                                                migrationResult.summary.toVersion,
+                                                migrationResult.summary.totalChanges.toString()
+                                            ]));
+                                            startPortPollingAndRestore(dataToRestore);
+                                        }, function onCancel() {
+                                            BackupRestore.clearLastAutoBackup();
+                                            showBackupSavedMessage('backupRestoreFlashCompleteBackupSaved');
+                                        });
+                                    } else {
+                                        $('span.progressLabel').text(i18n.getMessage('backupRestoreFlashCompleteOfferRestore'));
+
+                                        var $confirmOverlay = $('#restore-confirm-overlay');
+                                        $confirmOverlay.removeClass('is-hidden');
+                                        i18n.localize($confirmOverlay);
+
+                                        var $yesBtn = $confirmOverlay.find('.restore-confirm-overlay__btn--yes');
+                                        var $noBtn = $confirmOverlay.find('.restore-confirm-overlay__btn--no');
+
+                                        function confirmCleanup() {
+                                            $yesBtn.off('click.autoRestore');
+                                            $noBtn.off('click.autoRestore');
+                                            $confirmOverlay.addClass('is-hidden');
+                                        }
+
+                                        $noBtn.on('click.autoRestore', function(e) {
+                                            e.preventDefault();
+                                            confirmCleanup();
+                                            BackupRestore.clearLastAutoBackup();
+                                            $('span.progressLabel').text(i18n.getMessage('backupRestoreFlashCompleteBackupSaved'));
+                                        });
+
+                                        $yesBtn.on('click.autoRestore', function(e) {
+                                            e.preventDefault();
+                                            confirmCleanup();
+                                            startPortPollingAndRestore(dataToRestore);
+                                        });
+                                    }
+                                } else {
+                                    showBackupSavedMessage('backupRestoreFlashCompleteBackupSaved');
+                                    BackupRestore.clearLastAutoBackup();
+                                }
+                            }
+                        }
+
+                        function startPortPollingAndRestore(restoreData) {
+                            var restorePort = originalPort;
+                            var restoreBaud = originalBaud;
+
+                            var $overlay = $('#restore-overlay');
+                            var $overlayStatus = $overlay.find('.restore-overlay__status');
+                            var $overlayFill = $overlay.find('.restore-overlay__progress-fill');
+                            var $overlayText = $overlay.find('.restore-overlay__progress-text');
+                            $overlayFill.css('width', '0%');
+                            $overlayText.text('');
+                            $overlayStatus.text(i18n.getMessage('backupRestoreAutoRestoreWaitingPort', [restorePort]));
+                            $overlay.removeClass('is-hidden');
+
+                            var portPollRetries = 0;
+                            var maxPortPollRetries = 60; // 30 seconds max
+                            var portPollInterval = setInterval(function() {
+                                portPollRetries++;
+                                if (portPollRetries > maxPortPollRetries) {
+                                    clearInterval(portPollInterval);
+                                    $overlay.addClass('is-hidden');
+                                    GUI.connect_lock = false;
+                                    GUI.log(i18n.getMessage('backupRestoreRestoreFailed'));
+                                    $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreFailed'));
+                                    BackupRestore.clearLastAutoBackup();
+                                    return;
+                                }
+
+                                ConnectionSerial.getDevices().then(function(devices) {
+                                    if (devices && devices.includes(restorePort)) {
+                                        clearInterval(portPollInterval);
+                                        $overlayStatus.text(i18n.getMessage('backupRestoreStatusConnecting'));
+                                        setTimeout(function() {
+                                            doAutoRestore(restorePort, restoreBaud, restoreData, $overlay, $overlayStatus, $overlayFill, $overlayText);
+                                        }, 2000);
+                                    }
+                                });
+                            }, 500);
+                        }
+
+                        function doAutoRestore(restorePort, restoreBaud, restoreData, $overlay, $overlayStatus, $overlayFill, $overlayText) {
+                            GUI.connect_lock = true;
+
+                            CONFIGURATOR.connection.connect(restorePort, {bitrate: restoreBaud}, function(openInfo) {
+                                if (!openInfo) {
+                                    $overlay.addClass('is-hidden');
+                                    GUI.connect_lock = false;
+                                    GUI.log(i18n.getMessage('failedToOpenSerialPort'));
+                                    $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreFailed'));
+                                    BackupRestore.clearLastAutoBackup();
+                                    return;
+                                }
+
+                                function onProgress(info) {
+                                    if (info.phase === 'entering-cli') {
+                                        $overlayStatus.text(i18n.getMessage('backupRestoreStatusEnteringCli'));
+                                    } else if (info.phase === 'restoring') {
+                                        var pct = info.total > 0 ? Math.round((info.current / info.total) * 100) : 0;
+                                        $overlayStatus.text(i18n.getMessage('backupRestoreStatusRestoringProgress', [info.current, info.total]));
+                                        $overlayFill.css('width', pct + '%');
+                                        $overlayText.text(info.current + ' / ' + info.total);
+                                    }
+                                }
+
+                                BackupRestore.performRestore(restoreData, onProgress).then(function(result) {
+                                    $overlay.addClass('is-hidden');
+
+                                    if (result.errors.length > 0) {
+                                        var $errorDlg = $('#restore-error-dialog');
+                                        $errorDlg.find('.restore-error-dialog__errors').text(result.errors.join('\n'));
+                                        $errorDlg.removeClass('is-hidden');
+
+                                        var $saveBtn = $errorDlg.find('.restore-error-dialog__btn--save');
+                                        var $abortBtn = $errorDlg.find('.restore-error-dialog__btn--abort');
+
+                                        function cleanup() {
+                                            $saveBtn.off('click.restoreErr');
+                                            $abortBtn.off('click.restoreErr');
+                                            $errorDlg.addClass('is-hidden');
+                                        }
+
+                                        $saveBtn.on('click.restoreErr', function(e) {
+                                            e.preventDefault();
+                                            cleanup();
+                                            BackupRestore.saveAndReboot().then(function() {
+                                                GUI.log(i18n.getMessage('backupRestoreRestoreComplete'));
+                                                $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreComplete'));
+                                                disconnectSafely(function() {
+                                                    GUI.connect_lock = false;
+                                                });
+                                            });
+                                        });
+
+                                        $abortBtn.on('click.restoreErr', function(e) {
+                                            e.preventDefault();
+                                            cleanup();
+                                            BackupRestore.abortRestore().then(function() {
+                                                GUI.log(i18n.getMessage('backupRestoreRestoreAborted'));
+                                                $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreAborted'));
+                                                disconnectSafely(function() {
+                                                    GUI.connect_lock = false;
+                                                });
+                                            });
+                                        });
+                                    } else {
+                                        BackupRestore.saveAndReboot().then(function() {
+                                            GUI.log(i18n.getMessage('backupRestoreRestoreComplete'));
+                                            $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreComplete'));
+                                            disconnectSafely(function() {
+                                                GUI.connect_lock = false;
+                                            });
+                                        });
+                                    }
+                                    BackupRestore.clearLastAutoBackup();
+                                }).catch(function(err) {
+                                    $overlay.addClass('is-hidden');
+                                    console.error('Auto-restore failed:', err);
+                                    GUI.log(i18n.getMessage('backupRestoreRestoreFailed'));
+                                    $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreFailed'));
+                                    BackupRestore.clearLastAutoBackup();
+                                    disconnectSafely(function() {
+                                        GUI.connect_lock = false;
+                                    });
+                                });
+                            });
                         }
 
                         if (String($('div#port-picker #port').val()) != 'DFU') {
@@ -551,20 +964,289 @@ firmwareFlasherTab.initialize = function (callback) {
                                     baud = parseInt($('#flash_manual_baud_rate').val());
                                 }
 
+                                if (!options.no_reboot) {
+                                    options.onCliReady = BackupRestore.createOnCliReadyHandler(function(msgKey) {
+                                        $('span.progressLabel').text(i18n.getMessage(msgKey));
+                                    });
+                                }
 
-                                STM32.connect(port, baud, parsed_hex, options);
+                                STM32.connect(port, baud, parsed_hex, options, onFlashComplete);
                             } else {
                                 console.log('Please select valid serial port');
                                 GUI.log(i18n.getMessage('selectValidSerialPort'));
                             }
                         } else {
-                            STM32DFU.connect(usbDevices, parsed_hex, options);
+                            STM32DFU.connect(usbDevices, parsed_hex, options, onFlashComplete);
                         }
+
+                        } // end proceedWithFlash
+
                     } else {
                         $('span.progressLabel').text(i18n.getMessage('firmwareFlasherFirmwareNotLoaded'));
                     }
                 }
             }
+        });
+
+        $('a.backup_config').on('click', function () {
+            if (GUI.connect_lock) return;
+
+            var port = String($('div#port-picker #port').val());
+            if (port === '0' || port === 'DFU') {
+                GUI.log(i18n.getMessage('selectValidSerialPort'));
+                return;
+            }
+
+            $('span.progressLabel').text(i18n.getMessage('backupRestoreStatusConnecting'));
+
+            var rebootBaud = parseInt($('div#port-picker #baud').val());
+            GUI.connect_lock = true;
+
+            CONFIGURATOR.connection.connect(port, {bitrate: rebootBaud}, function(openInfo) {
+                if (!openInfo) {
+                    GUI.connect_lock = false;
+                    GUI.log(i18n.getMessage('failedToOpenSerialPort'));
+                    return;
+                }
+
+                BackupRestore.performBackupToFile(function(msgKey) {
+                    $('span.progressLabel').text(i18n.getMessage(msgKey));
+                }).then(function(result) {
+                    if (result) {
+                        GUI.log(i18n.getMessage('backupRestoreBackupSaved', [result.filePath]));
+                        $('span.progressLabel').text(i18n.getMessage('backupRestoreBackupComplete'));
+                    } else {
+                        $('span.progressLabel').text(i18n.getMessage('backupRestoreBackupCancelled'));
+                    }
+                    disconnectSafely(function() {
+                        GUI.connect_lock = false;
+                    });
+                }).catch(function(err) {
+                    console.error('Backup failed:', err);
+                    GUI.log(i18n.getMessage('backupRestoreBackupFailed'));
+                    $('span.progressLabel').text(i18n.getMessage('backupRestoreBackupFailed'));
+                    disconnectSafely(function() {
+                        GUI.connect_lock = false;
+                    });
+                });
+            });
+        });
+
+        $('a.restore_config').on('click', async function () {
+            if (GUI.connect_lock) return;
+
+            var port = String($('div#port-picker #port').val());
+            if (port === '0' || port === 'DFU') {
+                GUI.log(i18n.getMessage('selectValidSerialPort'));
+                return;
+            }
+
+            var backupDir = await window.electronAPI.getBackupDir();
+            var fileResult = await window.electronAPI.showOpenDialog({
+                defaultPath: backupDir,
+                filters: [
+                    { name: 'CLI/TXT', extensions: ['cli', 'txt'] },
+                    { name: 'ALL', extensions: ['*'] },
+                ],
+                properties: ['openFile'],
+            });
+
+            if (fileResult.canceled || !fileResult.filePaths || fileResult.filePaths.length === 0) {
+                $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreCancelled'));
+                return;
+            }
+
+            var fileResponse = await window.electronAPI.readFile(fileResult.filePaths[0]);
+            if (fileResponse.error) {
+                GUI.log(i18n.getMessage('backupRestoreRestoreFailed'));
+                $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreFailed'));
+                return;
+            }
+
+            var fileData = fileResponse.data;
+
+            var $overlay = $('#restore-overlay');
+            var $overlayStatus = $overlay.find('.restore-overlay__status');
+            var $overlayFill = $overlay.find('.restore-overlay__progress-fill');
+            var $overlayText = $overlay.find('.restore-overlay__progress-text');
+            $overlayFill.css('width', '0%');
+            $overlayText.text('');
+            $overlayStatus.text(i18n.getMessage('backupRestoreStatusConnecting'));
+            $overlay.removeClass('is-hidden');
+
+            $('span.progressLabel').text(i18n.getMessage('backupRestoreStatusConnecting'));
+
+            var rebootBaud = parseInt($('div#port-picker #baud').val());
+            GUI.connect_lock = true;
+
+            CONFIGURATOR.connection.connect(port, {bitrate: rebootBaud}, function(openInfo) {
+                if (!openInfo) {
+                    $overlay.addClass('is-hidden');
+                    GUI.connect_lock = false;
+                    GUI.log(i18n.getMessage('failedToOpenSerialPort'));
+                    return;
+                }
+
+                $overlayStatus.text(i18n.getMessage('backupRestoreStatusConnecting'));
+                MSP.disconnect_cleanup();
+                var mspListener = function(info) { MSP.read(info); };
+                CONFIGURATOR.connection.addOnReceiveCallback(mspListener);
+
+                var versionQueryDone = false;
+                var versionQueryTimeout = setTimeout(function() {
+                    if (!versionQueryDone) {
+                        versionQueryDone = true;
+                        CONFIGURATOR.connection.removeOnReceiveCallback(mspListener);
+                        console.warn('MSP_FC_VERSION query timed out, using cached version');
+                        proceedAfterVersionQuery();
+                    }
+                }, 3000);
+
+                MSP.send_message(MSPCodes.MSP_FC_VERSION, false, false, function() {
+                    if (!versionQueryDone) {
+                        versionQueryDone = true;
+                        clearTimeout(versionQueryTimeout);
+                        CONFIGURATOR.connection.removeOnReceiveCallback(mspListener);
+                        proceedAfterVersionQuery();
+                    }
+                });
+
+                function proceedAfterVersionQuery() {
+                    var currentFcVersion = FC.CONFIG.flightControllerVersion;
+
+                    var migrationNeeded = currentFcVersion && MigrationHandler.isMigrationNeeded(fileData, currentFcVersion);
+                    var missingProfiles = currentFcVersion && MigrationHandler.hasMissingProfiles(fileData, currentFcVersion);
+                    var migrationResult = null;
+
+                    if (migrationNeeded) {
+                        migrationResult = MigrationHandler.migrateBackupData(fileData, currentFcVersion);
+                        fileData = migrationResult.migratedContent;
+                    }
+
+                    if (missingProfiles) {
+                        if (!migrationResult) {
+                            var backupVer = MigrationHandler.extractBackupVersion(fileData) || 'unknown';
+                            migrationResult = MigrationHandler.createEmptyResult(backupVer, currentFcVersion, fileData);
+                        }
+                        migrationResult.summary.warnings.push(
+                            i18n.getMessage('migrationMissingProfileWarning', [
+                                migrationResult.summary.fromVersion,
+                                migrationResult.summary.toVersion,
+                            ])
+                        );
+                    }
+
+                    if (migrationResult && (migrationResult.summary.totalChanges > 0 || migrationResult.summary.warnings.length > 0)) {
+                        $overlay.addClass('is-hidden');
+                        showMigrationPreview(migrationResult.summary, function onContinue() {
+                            GUI.log(i18n.getMessage('backupRestoreMigrationApplied', [
+                                migrationResult.summary.fromVersion,
+                                migrationResult.summary.toVersion,
+                                migrationResult.summary.totalChanges.toString()
+                            ]));
+                            $overlay.removeClass('is-hidden');
+                            doRestore();
+                        }, function onCancel() {
+                            $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreCancelled'));
+                            disconnectSafely(function() {
+                                GUI.connect_lock = false;
+                            });
+                        });
+                    } else {
+                        doRestore();
+                    }
+                }
+
+                function doRestore() {
+
+                function onProgress(info) {
+                    switch (info.phase) {
+                        case 'entering-cli':
+                            $overlayStatus.text(i18n.getMessage('backupRestoreStatusEnteringCli'));
+                            $overlayFill.css('width', '0%');
+                            $overlayText.text('');
+                            break;
+                        case 'restoring':
+                            $overlayStatus.text(i18n.getMessage('backupRestoreStatusRestoringProgress', [info.current, info.total]));
+                            var pct = info.total > 0 ? Math.round((info.current / info.total) * 100) : 0;
+                            $overlayFill.css('width', pct + '%');
+                            $overlayText.text(info.current + ' / ' + info.total);
+                            $('span.progressLabel').text(i18n.getMessage('backupRestoreStatusRestoringProgress', [info.current, info.total]));
+                            break;
+                        case 'saving':
+                            $overlayStatus.text(i18n.getMessage('backupRestoreStatusSaving'));
+                            $overlayFill.css('width', '100%');
+                            break;
+                    }
+                }
+
+                BackupRestore.performRestore(fileData, onProgress).then(function(result) {
+                    $overlay.addClass('is-hidden');
+
+                    if (result.errors.length > 0) {
+                        var $errorDlg = $('#restore-error-dialog');
+                        var $errorList = $errorDlg.find('.restore-error-dialog__errors');
+                        $errorList.text(result.errors.join('\n'));
+                        $errorDlg.removeClass('is-hidden');
+
+                        var $saveBtn = $errorDlg.find('.restore-error-dialog__btn--save');
+                        var $abortBtn = $errorDlg.find('.restore-error-dialog__btn--abort');
+
+                        function cleanup() {
+                            $saveBtn.off('click.restoreErr');
+                            $abortBtn.off('click.restoreErr');
+                            $errorDlg.addClass('is-hidden');
+                        }
+
+                        $saveBtn.on('click.restoreErr', function(e) {
+                            e.preventDefault();
+                            cleanup();
+                            $('span.progressLabel').text(i18n.getMessage('backupRestoreStatusSaving'));
+                            BackupRestore.saveAndReboot().then(function() {
+                                GUI.log(i18n.getMessage('backupRestoreRestoreComplete'));
+                                $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreComplete'));
+                                disconnectSafely(function() {
+                                    GUI.connect_lock = false;
+                                });
+                            });
+                        });
+
+                        $abortBtn.on('click.restoreErr', function(e) {
+                            e.preventDefault();
+                            cleanup();
+                            $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreAborted'));
+                            BackupRestore.abortRestore().then(function() {
+                                GUI.log(i18n.getMessage('backupRestoreRestoreAborted'));
+                                disconnectSafely(function() {
+                                    GUI.connect_lock = false;
+                                });
+                            });
+                        });
+                    } else {
+                        $('span.progressLabel').text(i18n.getMessage('backupRestoreStatusSaving'));
+                        BackupRestore.saveAndReboot().then(function() {
+                            GUI.log(i18n.getMessage('backupRestoreRestoreComplete'));
+                            $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreComplete'));
+                            disconnectSafely(function() {
+                                GUI.connect_lock = false;
+                            });
+                        });
+                    }
+                }).catch(function(err) {
+                    $overlay.addClass('is-hidden');
+                    console.error('Restore failed:', err);
+                    GUI.log(i18n.getMessage('backupRestoreRestoreFailed'));
+                    $('span.progressLabel').text(i18n.getMessage('backupRestoreRestoreFailed'));
+                    disconnectSafely(function() {
+                        GUI.connect_lock = false;
+                    });
+                });
+                } // doRestore
+            });
+        });
+
+        $('a.open_backups_folder').on('click', function () {
+            window.electronAPI.openBackupDir();
         });
 
         $(document).on('click', 'span.progressLabel a.save_firmware', function () {
@@ -825,7 +1507,7 @@ firmwareFlasherTab.onOpen = async function(openInfo) {
         MSP.send_message(MSPCodes.MSP_API_VERSION, false, false, function () {
             
             if (FC.CONFIG.apiVersion === "0.0.0") {
-                GUI_control.prototype.log("Cannot prefetch target: <span style='color: red; font-weight: bolder'><strong>" + i18n.getMessage("illegalStateRestartRequired") + "</strong></span>");
+                GUI.log("Cannot prefetch target: <span style='color: red; font-weight: bolder'><strong>" + i18n.getMessage("illegalStateRestartRequired") + "</strong></span>");
                 FC.restartRequired = true;
                 return;
             }
@@ -860,11 +1542,18 @@ firmwareFlasherTab.onOpen = async function(openInfo) {
 firmwareFlasherTab.onValidFirmware = function() {
     MSP.send_message(MSPCodes.MSP_BUILD_INFO, false, false, function () {
         MSP.send_message(MSPCodes.MSP_BOARD_INFO, false, false, function () {
-            $('select[name="board"] option[value=' + FC.CONFIG.target + ']').attr("selected", "selected");
+            var boardSelect = $('select[name="board"]');
+            var normalizedTarget = normalizeTargetName(FC.CONFIG.target);
+            boardSelect.val(normalizedTarget);
+
             GUI.log(i18n.getMessage('targetPrefetchsuccessful') + FC.CONFIG.target);
 
             firmwareFlasherTab.closeTempConnection();
-            $('select[name="board"]').trigger('change');
+
+            // Only trigger change if the board was actually found and selected
+            if (boardSelect.val() === normalizedTarget) {
+                boardSelect.trigger('change');
+            }
         });
     });
 };

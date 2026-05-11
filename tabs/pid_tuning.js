@@ -13,9 +13,9 @@ import { scaleRangeInt } from './../js/helpers';
 import interval from './../js/intervals';
 import dialog from '../js/dialog';
 
-const pidTuningTab = { };
-
-pidTuningTab.rateChartHeight = 117
+const pidTuningTab = {
+    rateChartHeight: 117
+};
 
 pidTuningTab.initialize = function (callback) {
 
@@ -312,7 +312,7 @@ pidTuningTab.initialize = function (callback) {
                         GUI.tab_switch_cleanup(function () {
                             MSP.send_message(MSPCodes.MSP_SET_REBOOT, false, false, function () {
                                 GUI.log(i18n.getMessage('deviceRebooting'));
-                                GUI.handleReconnect(true);
+                                GUI.handleReconnect();
                             });
                         });
                     });
@@ -458,4 +458,3 @@ pidTuningTab.cleanup = function (callback) {
 };
 
 export default pidTuningTab;
-

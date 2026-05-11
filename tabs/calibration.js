@@ -61,7 +61,6 @@ calibrationTab.initialize = function (callback) {
     if (GUI.active_tab !== this) {
         GUI.active_tab = this;
     }
-    
     loadChainer.setChain([
         mspHelper.queryFcStatus,
         mspHelper.loadSensorConfig,
@@ -88,7 +87,7 @@ calibrationTab.initialize = function (callback) {
     function reinitialize() {
         //noinspection JSUnresolvedVariable
         GUI.log(i18n.getMessage('deviceRebooting'));
-        GUI.handleReconnect(true);
+        GUI.handleReconnect($('.tab_calibration a'));
     }
 
     function loadHtml() {

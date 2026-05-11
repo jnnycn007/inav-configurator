@@ -3,9 +3,8 @@
 import GUI from './../js/gui';
 import i18n from './../js/localization';
 
-const landingTab = {};
-
-landingTab.initialize = function (callback) {
+const landing = {};
+landing.initialize = function (callback) {
 
     if (GUI.active_tab !== this) {
         GUI.active_tab = this;
@@ -18,8 +17,10 @@ landingTab.initialize = function (callback) {
     });
 };
 
-landingTab.cleanup = function (callback) {
+landing.cleanup = function (callback) {
     if (callback) callback();
 };
+
+const landingTab = landing;
 
 export default landingTab;

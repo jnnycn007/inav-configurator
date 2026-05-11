@@ -11,9 +11,9 @@ import Settings from './../js/settings';
 import i18n from './../js/localization';
 import interval from './../js/intervals';
 
-const receiverTab = { };
- 
-receiverTab.rateChartHeight = 117;
+const receiverTab = {
+    rateChartHeight: 117
+};
 
 receiverTab.initialize = function (callback) {
     var self = this;
@@ -45,7 +45,7 @@ receiverTab.initialize = function (callback) {
         Settings.saveInputs(onComplete);
     }
 
-    function process_html() {
+    function process_html(settingsPromise) {
         // translate to user-selected language
        i18n.localize();;
 
@@ -79,8 +79,6 @@ receiverTab.initialize = function (callback) {
             }
         });
 
-        $serialRxProvider.trigger("change");
-
         $receiverMode.on('change', function () {
             if ($(this).find("option:selected").text() == "SERIAL") {
                 $serialWrapper.show();
@@ -93,7 +91,11 @@ receiverTab.initialize = function (callback) {
             }
         });
 
-        $receiverMode.trigger("change");
+        // Wait for settings to load before triggering change events
+        // Trigger receiverMode which will trigger serialRxProvider when mode is SERIAL
+        settingsPromise.then(function() {
+            $receiverMode.trigger("change");
+        });
 
         // fill in data from RC_tuning
         $('.tunings .throttle input[name="mid"]').val(FC.RC_tuning.throttle_MID.toFixed(2));
@@ -300,7 +302,7 @@ receiverTab.initialize = function (callback) {
                     GUI.tab_switch_cleanup(function () {
                         MSP.send_message(MSPCodes.MSP_SET_REBOOT, false, false, function () {
                             GUI.log(i18n.getMessage('deviceRebooting'));
-                            GUI.handleReconnect(true);
+                            GUI.handleReconnect($('.tab_receiver a'));
                         });
                     });
                 });
@@ -310,10 +312,10 @@ receiverTab.initialize = function (callback) {
         });
 
         $("a.sticks").on('click', function () {
-            var mspWin = window.open("tabs/receiver_msp.html", "receiver_msp", "width=420,height=760,menubar=no,contextIsolation=no,nodeIntegration=yes");
+            var mspWin = window.open("tabs/receiver_msp.html", "receiver_msp", "width=420,height=760,menubar=no");
             
             mspWin.window.setRawRx = function (channels) {
-                if (CONFIGURATOR.connectionValid && !CONFIGURATOR.cliActive) {
+                if (CONFIGURATOR.connectionValid && GUI.active_tab != 'cli') {
                     mspHelper.setRawRx(channels);
                     return true;
                 } else {

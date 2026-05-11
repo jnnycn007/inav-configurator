@@ -20,10 +20,8 @@ var ORIG_AUX_CONFIG_IDS = [];
 const auxiliaryTab = {};
 
 auxiliaryTab.initialize = function (callback) {
-    
-    if (GUI.active_tab !== this) {
-        GUI.active_tab = this;
-    }
+    GUI.active_tab_ref = this;
+    GUI.active_tab = this;
 
     let LOCAL_AUX_CONFIG = [];
     let LOCAL_AUX_CONFIG_IDS = [];
