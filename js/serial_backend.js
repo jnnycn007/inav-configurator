@@ -207,7 +207,6 @@ var SerialBackend = (function () {
                             javascriptProgrammingTab.isDirty = false;
                         }
 
->>>>>>> 74465c9bcf (fix: resolve remaining broken API references after tab-modules merge)
                         if (this.isDemoRunning) {
                             SITLProcess.stop();
                             this.isDemoRunning = false;
