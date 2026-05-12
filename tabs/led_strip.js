@@ -3,12 +3,12 @@
 import mspHelper from './../js/msp/MSPHelper';
 import MSPCodes from './../js/msp/MSPCodes';
 import MSP from './../js/msp';
-import { GUI, TABS } from './../js/gui';
+import GUI from './../js/gui';
 import FC from './../js/fc';
 import i18n from './../js/localization';
 import LED_STRIP_PRESETS from './led_strip_presets.js';
 
-ledStripTab = {
+const ledStripTab = {
     wireMode: false,
     directions: ['n', 'e', 's', 'w', 'u', 'd'],
     undoStack: [],
@@ -26,8 +26,8 @@ ledStripTab.initialize = function (callback, scrollPosition) {
 
     ledStripTab.wireMode = false;
 
-    if (GUI.active_tab != 'led_strip') {
-        GUI.active_tab = 'led_strip';
+    if (GUI.active_tab !== ledStripTab) {
+        GUI.active_tab = ledStripTab;
     }
 
     function load_led_config() {
@@ -1277,3 +1277,5 @@ ledStripTab.cleanup = function (callback) {
     ledStripTab.undoStack = [];
     if (callback) callback();
 };
+
+export default ledStripTab;

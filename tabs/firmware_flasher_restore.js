@@ -6,7 +6,7 @@ import i18n from '../js/localization';
 import BackupRestore from '../js/backup_restore';
 import MigrationHandler from '../js/migration/migration_handler';
 import CONFIGURATOR from '../js/data_storage';
-import { GUI } from '../js/gui';
+import GUI from '../js/gui';
 import FC from '../js/fc';
 import ConnectionSerial from '../js/connection/connectionSerial';
 

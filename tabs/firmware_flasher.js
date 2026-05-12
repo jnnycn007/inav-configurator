@@ -4,7 +4,7 @@ import { marked } from 'marked';
 import semver from 'semver';
 
 import i18n from './../js/localization';
-import { GUI, TABS } from './../js/gui';
+import GUI from './../js/gui';
 import MSP from './../js/msp';
 import MSPCodes from './../js/msp/MSPCodes';
 import FC from './../js/fc';
@@ -25,7 +25,7 @@ import BackupRestore from './../js/backup_restore';
 import MigrationHandler from './../js/migration/migration_handler';
 import { FlashRestoreFlow, showMigrationPreview, prepareRestoreData, executeRestore } from './firmware_flasher_restore';
 
-firmwareFlasherTab = {};
+const firmwareFlasherTab = {};
 
 // Normalize target names to underscores for consistent dictionary lookups.
 // Hyphens supported as workaround for 9.0.0 filename inconsistency.
@@ -69,8 +69,8 @@ function disconnectSafely(callback) {
 
 firmwareFlasherTab.initialize = function (callback) {
 
-    if (GUI.active_tab != 'firmware_flasher') {
-        GUI.active_tab = 'firmware_flasher';
+    if (GUI.active_tab !== firmwareFlasherTab) {
+        GUI.active_tab = firmwareFlasherTab;
     }
 
     var intel_hex = false, // standard intel hex in string format
@@ -1182,3 +1182,4 @@ firmwareFlasherTab.closeTempConnection = function() {
     CONFIGURATOR.connection.disconnect();
     MSP.disconnect_cleanup();
 };
+export default firmwareFlasherTab;
