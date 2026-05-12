@@ -107,12 +107,13 @@ TABS.cli.initialize = function (callback) {
     function executeCommands(out_string) {
         self.history.add(out_string.trim());
 
-        const lines = out_string.split("\n");
+        const lines = out_string.split("\n").filter(l => l.length > 0);
         if (lines.length === 0) return Promise.resolve();
 
         return new Promise((resolve) => {
             let nextToSend = 0;
             let promptsReceived = 0;
+            let promptGeneration = 0;
 
             function sendOne() {
                 const line = lines[nextToSend];
@@ -124,7 +125,9 @@ TABS.cli.initialize = function (callback) {
 
             function armCallback() {
                 clearTimeout(TABS.cli.promptTimeoutId);
+                const myGen = ++promptGeneration;
                 TABS.cli.promptTimeoutId = setTimeout(() => {
+                    if (myGen !== promptGeneration) return; // real prompt already fired
                     TABS.cli.promptCallback = null;
                     onPrompt();
                 }, 5000);
@@ -519,7 +522,7 @@ TABS.cli.read = function (readInfo) {
 
     setPrompt(removePromptHash(this.cliBuffer));
 
-    if (TABS.cli.promptCallback) {
+    if (TABS.cli.promptCallback && this.cliBuffer.endsWith('# ')) {
         const cb = TABS.cli.promptCallback;
         TABS.cli.promptCallback = null;
         clearTimeout(TABS.cli.promptTimeoutId);
