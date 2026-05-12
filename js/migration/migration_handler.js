@@ -43,22 +43,22 @@ const MigrationHandler = {
     buildMigrationChain(fromVersion, toVersion) {
         if (!fromVersion || !toVersion) return [];
 
-        const fromMajor = semver.major(fromVersion);
-        const toMajor = semver.major(toVersion);
+        const fromCoerced = semver.coerce(fromVersion);
+        const toCoerced = semver.coerce(toVersion);
+        if (!fromCoerced || !toCoerced) return [];
 
-        if (fromMajor >= toMajor) return [];
+        let currentMajor = semver.major(fromCoerced);
+        const toMajor = semver.major(toCoerced);
+
+        if (currentMajor >= toMajor) return [];
 
         const chain = [];
-        for (const profile of MIGRATION_PROFILES) {
-            const profileFrom = parseInt(profile.fromVersion, 10);
-            const profileTo = parseInt(profile.toVersion, 10);
-
-            if (profileFrom >= fromMajor && profileTo <= toMajor) {
-                chain.push(profile);
-            }
+        while (currentMajor < toMajor) {
+            const profile = MIGRATION_PROFILES.find(p => parseInt(p.fromVersion, 10) === currentMajor);
+            if (!profile) break;
+            chain.push(profile);
+            currentMajor = parseInt(profile.toVersion, 10);
         }
-
-        chain.sort((a, b) => parseInt(a.fromVersion, 10) - parseInt(b.fromVersion, 10));
 
         return chain;
     },
@@ -284,8 +284,12 @@ const MigrationHandler = {
         const fromVersion = this.extractBackupVersion(fileContent);
         if (!fromVersion || !targetVersion) return false;
 
-        const fromMajor = semver.major(semver.coerce(fromVersion));
-        const toMajor = semver.major(semver.coerce(targetVersion));
+        const fromCoerced = semver.coerce(fromVersion);
+        const toCoerced = semver.coerce(targetVersion);
+        if (!fromCoerced || !toCoerced) return false;
+
+        const fromMajor = semver.major(fromCoerced);
+        const toMajor = semver.major(toCoerced);
 
         if (toMajor <= fromMajor) return false;
 

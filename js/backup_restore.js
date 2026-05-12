@@ -1,7 +1,7 @@
 'use strict';
 
 import CONFIGURATOR from './data_storage';
-import GUI from './gui';
+import { GUI } from './gui';
 import FC from './fc';
 import i18n from './localization';
 import semver from 'semver';
@@ -59,6 +59,8 @@ const BackupRestore = {
                     if (timeoutHandle) {
                         clearTimeout(timeoutHandle);
                     }
+                    CONFIGURATOR.connection.removeOnReceiveCallback(this._receiveCallback);
+                    this._receiveCallback = null;
                     resolve();
                 }
             };

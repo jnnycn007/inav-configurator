@@ -211,7 +211,7 @@ var SerialBackend = (function () {
                             SITLProcess.stop();
                             this.isDemoRunning = false;
                         }
-                        
+
                         var wasConnected = CONFIGURATOR.connectionValid;
 
                         timeout.killAll();
@@ -336,7 +336,7 @@ var SerialBackend = (function () {
     privateScope.onOpen = function (openInfo) {
 
         if (FC.restartRequired) {
-            GUI_control.prototype.log("<span style='color: red; font-weight: bolder'><strong>" + i18n.getMessage("illegalStateRestartRequired") + "</strong></span>");
+            GUI.log("<span style='color: red; font-weight: bolder'><strong>" + i18n.getMessage("illegalStateRestartRequired") + "</strong></span>");
             $('div.connect_controls a').trigger( "click" ); // disconnect
             return;
         }
@@ -366,6 +366,11 @@ var SerialBackend = (function () {
             store.set('last_used_bps', CONFIGURATOR.connection.bitrate);
             store.set('wireless_mode_enabled', $('#wireless-mode').is(":checked"));
 
+            // Reset state BEFORE adding receive listeners to ensure any
+            // garbage bytes or boot messages don't corrupt the MSP decoder
+            FC.resetState();
+            MSP.disconnect_cleanup();
+
             CONFIGURATOR.connection.addOnReceiveListener(publicScope.read_serial);
             CONFIGURATOR.connection.addOnReceiveListener(ltmDecoder.read);
 
@@ -393,15 +398,13 @@ var SerialBackend = (function () {
                 }
             }, 1000);
 
-            FC.resetState();
-
             // request configuration data. Start with MSPv1 and
             // upgrade to MSPv2 if possible.
             MSP.protocolVersion = MSP.constants.PROTOCOL_V2;
             MSP.send_message(MSPCodes.MSP_API_VERSION, false, false, function () {
                 
                 if (FC.CONFIG.apiVersion === "0.0.0") {
-                    GUI_control.prototype.log("<span style='color: red; font-weight: bolder'><strong>" + i18n.getMessage("illegalStateRestartRequired") + "</strong></span>");
+                    GUI.log("<span style='color: red; font-weight: bolder'><strong>" + i18n.getMessage("illegalStateRestartRequired") + "</strong></span>");
                     FC.restartRequired = true;
                     return;
                 }

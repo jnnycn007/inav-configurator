@@ -149,7 +149,7 @@ var Settings = (function () {
                     }
                 }
 
-                // If data is defined, We want to convert this value into 
+                // If data is defined, We want to convert this value into
                 // something matching the units
                 self.convertToUnitSetting(input, inputUnit);
 
@@ -163,7 +163,6 @@ var Settings = (function () {
             });
         });
     };
-
 
     /**
      * 
