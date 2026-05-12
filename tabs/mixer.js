@@ -731,7 +731,7 @@ mixerTab.initialize = function (callback, scrollPosition) {
                 $('#platform-type').parent('.select').addClass('no-bottom-border');
             }
 
-            if (!GUI.updateEzTuneTabVisibility(false)) {
+            if (FC.MIXER_CONFIG.platformType !== PLATFORM.MULTIROTOR && FC.MIXER_CONFIG.platformType !== PLATFORM.TRICOPTER) {
                 FC.EZ_TUNE.enabled = 0;
                 mspHelper.saveEzTune();
             }

@@ -8,7 +8,7 @@
 
 import MSPChainerClass from './../js/msp/MSPchainer.js';
 import mspHelper from './../js/msp/MSPHelper.js';
-import { GUI, TABS } from './../js/gui.js';
+import GUI from './../js/gui.js';
 import FC from './../js/fc.js';
 import i18n from './../js/localization.js';
 import interval from './../js/intervals.js';
