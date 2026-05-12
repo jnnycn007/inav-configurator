@@ -420,12 +420,12 @@ app.whenReady().then(() => {
     return backupDir;
   });
 
-  ipcMain.handle('openBackupDir', async (_event) => {
+  ipcMain.handle('openBackupDir', (_event) => {
     const backupDir = path.join(app.getPath('userData'), 'inav-backups');
     if (!existsSync(backupDir)) {
       mkdirSync(backupDir, { recursive: true });
     }
-    await shell.openPath(backupDir);
+    shell.openPath(backupDir); // fire-and-forget: xdg-open on Linux never exits
     return backupDir;
   });
 
