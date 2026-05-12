@@ -16,10 +16,10 @@ import { generateFilename } from './../js/helpers';
 import dialog from '../js/dialog';
 
 TABS.cli = {
-    lineDelayMs: 50,
-    profileSwitchDelayMs: 100,
     outputHistory: "",
     cliBuffer: "",
+    promptCallback: null,
+    promptTimeoutId: null,
     GUI: {
         snippetPreviewWindow: null,
     },
@@ -107,26 +107,44 @@ TABS.cli.initialize = function (callback) {
     function executeCommands(out_string) {
         self.history.add(out_string.trim());
 
-        var outputArray = out_string.split("\n");
-        return outputArray.reduce((p, line, index) =>
-            p.then((delay) =>
-                new Promise((resolve) => {
-                    timeout.add('CLI_send_slowly', () => {
-                        let processingDelay = TABS.cli.lineDelayMs;
-                        if (line.toLowerCase().includes('_profile')) {
-                            processingDelay = TABS.cli.profileSwitchDelayMs;
-                        }
-                        const isLastCommand = outputArray.length === index + 1;
-                        if (isLastCommand && TABS.cli.cliBuffer) {
-                            line = getCliCommand(line, TABS.cli.cliBuffer);
-                        }
-                        TABS.cli.sendLine(line, () => {
-                            resolve(processingDelay);
-                        });
-                    }, delay);
-                })
-            ), Promise.resolve(0),
-        );
+        const lines = out_string.split("\n");
+        if (lines.length === 0) return Promise.resolve();
+
+        return new Promise((resolve) => {
+            let nextToSend = 0;
+            let promptsReceived = 0;
+
+            function sendOne() {
+                const line = lines[nextToSend];
+                const isLast = nextToSend === lines.length - 1;
+                const cmd = isLast ? getCliCommand(line, TABS.cli.cliBuffer) : line;
+                nextToSend++;
+                TABS.cli.sendLine(cmd);
+            }
+
+            function armCallback() {
+                clearTimeout(TABS.cli.promptTimeoutId);
+                TABS.cli.promptTimeoutId = setTimeout(() => {
+                    TABS.cli.promptCallback = null;
+                    onPrompt();
+                }, 5000);
+                TABS.cli.promptCallback = onPrompt;
+            }
+
+            function onPrompt() {
+                promptsReceived++;
+                if (nextToSend < lines.length) sendOne();
+                if (promptsReceived === lines.length) {
+                    resolve();
+                } else {
+                    armCallback();
+                }
+            }
+
+            sendOne();
+            if (lines.length > 1) sendOne();
+            armCallback();
+        });
     }
     import('./cli.html?raw').then(({default: html}) => GUI.load(html, function () {
         // translate to user-selected language
@@ -500,6 +518,13 @@ TABS.cli.read = function (readInfo) {
     }
 
     setPrompt(removePromptHash(this.cliBuffer));
+
+    if (TABS.cli.promptCallback) {
+        const cb = TABS.cli.promptCallback;
+        TABS.cli.promptCallback = null;
+        clearTimeout(TABS.cli.promptTimeoutId);
+        cb();
+    }
 };
 
 TABS.cli.sendLine = function (line, callback) {
@@ -522,6 +547,9 @@ TABS.cli.send = function (line, callback) {
 };
 
 TABS.cli.cleanup = function (callback) {
+    clearTimeout(TABS.cli.promptTimeoutId);
+    TABS.cli.promptCallback = null;
+
     if (!(CONFIGURATOR.connectionValid && CONFIGURATOR.cliValid && CONFIGURATOR.cliActive)) {
         if (callback) callback();
         return;
