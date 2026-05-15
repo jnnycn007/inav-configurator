@@ -4115,7 +4115,11 @@ function iconKey(filename) {
                 if (result.canceled) {
                     return;
                 }
-                saveMissionFile(result.filePath);
+                let filePath = result.filePath;
+                if (!filePath.endsWith('.mission')) {
+                    filePath += '.mission';
+                }
+                saveMissionFile(filePath);
             });
         });
 
