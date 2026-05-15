@@ -3722,7 +3722,11 @@ function iconKey(filename) {
                 if (result.canceled) {
                     return;
                 }
-                saveMissionFile(result.filePath);
+                let filePath = result.filePath;
+                if (!filePath.endsWith('.mission')) {
+                    filePath += '.mission';
+                }
+                saveMissionFile(filePath);
             });
         });
 
@@ -4047,7 +4051,7 @@ function iconKey(filename) {
         var builder = new xml2js.Builder({ 'rootName': 'mission', 'renderOpts': { 'pretty': true, 'indent': '\t', 'newline': '\n' } });
         var xml = builder.buildObject(data);
         xml = xml.replace(/missionitem mission/g, 'meta mission');
-        fs.writeFile(filename, xml, (err) => {
+        window.electronAPI.writeFile(filename, xml).then(err => {
             if (err) {
                 GUI.log(i18n.getMessage('ErrorWritingFile'));
                 return console.error(err);
