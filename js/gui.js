@@ -7,9 +7,6 @@ import { scaleRangeInt } from './helpers';
 import i18n from './localization';
 import mspDeduplicationQueue from "./msp/mspDeduplicationQueue";
 
-var TABS = {}; // filled by individual tab js file
-
-
 var GUI_control = function () {
     this.connecting_to = false;
     this.connected_to = false;
@@ -101,7 +98,7 @@ GUI_control.prototype.tab_switch_cleanup = function (callback) {
     interval.killAll(['global_data_refresh', 'msp-load-update', 'ltm-connection-check']);
 
     if (this.active_tab) {
-        TABS[this.active_tab].cleanup(callback);
+        this.active_tab.cleanup(callback);
     } else {
         callback();
     }
@@ -452,17 +449,17 @@ GUI_control.prototype.sliderize = function ($input, value, min, max) {
 GUI_control.prototype.update_dataflash_global = function () {
     function formatFilesize(bytes) {
         if (bytes < 1024) {
-            return bytes + "B";
+            return Math.round(bytes / 1024) + " KB";
         }
         var kilobytes = bytes / 1024;
 
         if (kilobytes < 1024) {
-            return Math.round(kilobytes) + "kB";
+            return Math.round(kilobytes) + " KB";
         }
 
         var megabytes = kilobytes / 1024;
 
-        return megabytes.toFixed(1) + "MB";
+        return megabytes.toFixed(1) + " MB";
     }
 
     var supportsDataflash = FC.DATAFLASH.totalSize > 0;
@@ -480,7 +477,7 @@ GUI_control.prototype.update_dataflash_global = function () {
         width: (100-(FC.DATAFLASH.totalSize - FC.DATAFLASH.usedSize) / FC.DATAFLASH.totalSize * 100) + "%",
         display: 'block'
         });
-        $(".dataflash-free_global div").html(i18n.getMessage('sensorDataFlashFreeSpace') + formatFilesize(FC.DATAFLASH.totalSize - FC.DATAFLASH.usedSize));
+        $(".dataflash-free_global_label").html(i18n.getMessage('sensorDataFlashFreeSpace') + formatFilesize(FC.DATAFLASH.totalSize - FC.DATAFLASH.usedSize) + " free");
     } else {
         $(".noflash_global").css({
         display: 'block'
@@ -496,4 +493,4 @@ GUI_control.prototype.update_dataflash_global = function () {
 // initialize object into GUI variable
 var GUI = new GUI_control();
 
-export { GUI, TABS };
+export default GUI;

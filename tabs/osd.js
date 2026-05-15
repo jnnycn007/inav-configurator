@@ -7,7 +7,7 @@ import jBox from 'jbox';
 import { debounce } from 'throttle-debounce';
 
 import FC from './../js/fc';
-import { GUI, TABS } from './../js/gui';
+import GUI from './../js/gui';
 import MSP from './../js/msp';
 import MSPCodes from './../js/msp/MSPCodes';
 import mspHelper from './../js/msp/MSPHelper';
@@ -2435,10 +2435,15 @@ OSD.reload = function(callback) {
                     OSD.data.supported = true;
                     OSD.msp.decodePreferences(resp);
                     
-                    MSP.promise(MSPCodes.MSP2_INAV_CUSTOM_OSD_ELEMENTS).then(() => { 
+                    MSP.promise(MSPCodes.MSP2_INAV_CUSTOM_OSD_ELEMENTS).then(() => {
                         mspHelper.loadOsdCustomElements(() => {
-                            createCustomElements();
-                            done();
+                            MSP.promise(MSPCodes.MSP2_INAV_LOGIC_CONDITIONS_CONFIGURED).then(() => {
+                                createCustomElements();
+                                done();
+                            }).catch(() => {
+                                createCustomElements();
+                                done();
+                            });
                         });
                     });
                 });
@@ -3554,17 +3559,13 @@ HARDWARE.update = function(callback) {
     });
 };
 
-TABS.osd = {};
-TABS.osd.initialize = function (callback) {
+const osdTab = {};
+osdTab.initialize = function (callback) {
 
     mspHelper.loadServoMixRules();
-    mspHelper.loadLogicConditions(function() {
-        // Refresh LC dropdowns now that conditions are loaded
-        $('select.lc, select.ico_lc').html(getLCoptions());
-    });
 
-    if (GUI.active_tab != 'osd') {
-        GUI.active_tab = 'osd';
+    if (GUI.active_tab !== this) {
+        GUI.active_tab = this;
     }
 
     function save_to_eeprom() {
@@ -4177,13 +4178,16 @@ function getGVoptions(){
 
 function getLCoptions(){
     var result = '';
-    // Return empty if conditions aren't fully loaded yet - callback will refresh
-    if (FC.LOGIC_CONDITIONS.getCount() < FC.LOGIC_CONDITIONS.getMaxLogicConditionCount()) {
+    var mask = FC.LOGIC_CONDITIONS_CONFIGURED_MASK;
+    if (!mask) {
         return result;
     }
-    for(var i = 0; i < FC.LOGIC_CONDITIONS.getMaxLogicConditionCount(); i++) {
-        if (FC.LOGIC_CONDITIONS.isEnabled(i)) {
-            result += `<option value="` + i + `">LC ` + i + `</option>`;
+    for (var i = 0; i < 64; i++) {
+        var isConfigured = (i < 32) ?
+            ((mask.lower >>> i) & 1) === 1 :
+            ((mask.upper >>> (i - 32)) & 1) === 1;
+        if (isConfigured) {
+            result += '<option value="' + i + '">LC ' + i + '</option>';
         }
     }
     return result;
@@ -4311,7 +4315,7 @@ function updatePanServoPreview() {
     OSD.GUI.updatePreviews();
 }
 
-TABS.osd.cleanup = function (callback) {
+osdTab.cleanup = function (callback) {
     PortHandler.flush_callbacks();
 
     // unbind "global" events
@@ -4323,3 +4327,5 @@ TABS.osd.cleanup = function (callback) {
 
     if (callback) callback();
 };
+
+export default osdTab;

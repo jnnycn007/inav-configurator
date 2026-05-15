@@ -1,6 +1,6 @@
 'use strict'
 
-import { GUI } from './../gui';
+import GUI from './../gui';
 
 import  { ConnectionType, Connection } from './connection';
 import i18n from './../localization';
@@ -19,8 +19,8 @@ const BleDevices = [
     {
         name: "Nordic Semiconductor NRF",
         serviceUuid:        '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-        writeCharateristic: '6e400003-b5a3-f393-e0a9-e50e24dcca9e', 
-        readCharateristic:  '6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+        writeCharateristic: '6e400002-b5a3-f393-e0a9-e50e24dcca9e', 
+        readCharateristic:  '6e400003-b5a3-f393-e0a9-e50e24dcca9e',
         delay:              30,
     },
     {
@@ -48,7 +48,6 @@ class ConnectionBle extends Connection {
         this._writeCharacteristic   = false;
         this._device                = false;
         this._deviceDescription     = false;
-        this._onCharateristicValueChangedListeners = [];
         this._onDisconnectListeners   = [];
         this._reconnects = 0;
         this._handleOnCharateristicValueChanged = false;
@@ -166,11 +165,13 @@ class ConnectionBle extends Connection {
                         buffer[i] = event.target.value.getUint8(i);
                     }
 
-                    this._onCharateristicValueChangedListeners.forEach(listener => {
-                        listener({
-                            connectionId: 0xFF,
-                            data: buffer
-                        });
+                    const info = {
+                        connectionId: 0xFF,
+                        data: buffer
+                    };
+
+                    this._onReceiveListeners.forEach(listener => {
+                        listener(info);
                     });
                 };
 
@@ -242,11 +243,11 @@ class ConnectionBle extends Connection {
     }
 
     addOnReceiveCallback(callback){
-        this._onCharateristicValueChangedListeners.push(callback);
+        this._onReceiveListeners.push(callback);
     }
 
     removeOnReceiveCallback(callback){
-        this._onCharateristicValueChangedListeners = this._onCharateristicValueChangedListeners.filter(listener => listener !== callback);
+        this._onReceiveListeners = this._onReceiveListeners.filter(listener => listener !== callback);
     }
 
     addOnReceiveErrorCallback(callback) {
