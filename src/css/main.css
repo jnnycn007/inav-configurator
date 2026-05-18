@@ -1345,7 +1345,7 @@ dialog {
 
 .content_toolbar .btn a {
     /*  common styles for content toolbar buttons */
-    margin: 0;
+    margin: 5px;
     background-color: #37a8db;
     border-radius: 3px;
     border: 1px solid #3394b5;
@@ -1356,7 +1356,7 @@ dialog {
     display: block;
     cursor: pointer;
     transition: all ease 0.2s;
-    padding: 0 9px;
+    padding: 5px 9px;
     line-height: 28px;
 }
 
