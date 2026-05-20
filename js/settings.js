@@ -160,9 +160,10 @@ var Settings = (function () {
                         return mspHelper.setSetting(settingPair.setting, settingPair.value);
                     });
                 }
-            }).catch(function() {
-                // Setting read failed (e.g. malformed or truncated MSP response).
-                // Remove the input from the DOM so it is not shown or saved.
+            }).catch(function(err) {
+                // Setting read failed. Log it so the problem is visible, then
+                // remove the input so incorrect data is not shown or saved.
+                console.error('Failed to read setting "' + settingName + '":', err);
                 var parent = input.parents('.setting-container:first');
                 if (parent.length == 0) {
                     parent = input.parent();
