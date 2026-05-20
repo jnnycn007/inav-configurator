@@ -626,7 +626,10 @@ var Settings = (function () {
         if (inputs.length > 0) {
             var input = inputs.shift();
             var settingPair = self.processInput(input);
-            return mspHelper.setSetting(settingPair.setting, settingPair.value, function() {       
+            if (!settingPair) {
+                return self.pickAndSaveSingleInput(inputs, finalCallback);
+            }
+            return mspHelper.setSetting(settingPair.setting, settingPair.value, function() {
                 return self.pickAndSaveSingleInput(inputs, finalCallback);
             });
         } else {
