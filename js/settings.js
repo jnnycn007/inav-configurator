@@ -160,6 +160,14 @@ var Settings = (function () {
                         return mspHelper.setSetting(settingPair.setting, settingPair.value);
                     });
                 }
+            }).catch(function() {
+                // Setting read failed (e.g. malformed or truncated MSP response).
+                // Remove the input from the DOM so it is not shown or saved.
+                var parent = input.parents('.setting-container:first');
+                if (parent.length == 0) {
+                    parent = input.parent();
+                }
+                parent.remove();
             });
         });
     };
