@@ -157,6 +157,7 @@ var Settings = (function () {
                 if (input.data('live')) {
                     input.on('change', function () {
                         const settingPair = self.processInput(input);
+                        if (!settingPair) { return; }
                         return mspHelper.setSetting(settingPair.setting, settingPair.value);
                     });
                 }
@@ -632,12 +633,14 @@ var Settings = (function () {
     };
 
     self.pickAndSaveSingleInput = function(inputs, finalCallback) {
+        // Skip inputs whose settings failed to load (null settingPair), using a
+        // loop rather than recursion to avoid stack growth for large null runs.
+        while (inputs.length > 0 && !self.processInput(inputs[0])) {
+            inputs.shift();
+        }
         if (inputs.length > 0) {
             var input = inputs.shift();
             var settingPair = self.processInput(input);
-            if (!settingPair) {
-                return self.pickAndSaveSingleInput(inputs, finalCallback);
-            }
             return mspHelper.setSetting(settingPair.setting, settingPair.value, function() {
                 return self.pickAndSaveSingleInput(inputs, finalCallback);
             });
