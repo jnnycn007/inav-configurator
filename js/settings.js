@@ -157,9 +157,19 @@ var Settings = (function () {
                 if (input.data('live')) {
                     input.on('change', function () {
                         const settingPair = self.processInput(input);
+                        if (!settingPair) { return; }
                         return mspHelper.setSetting(settingPair.setting, settingPair.value);
                     });
                 }
+            }).catch(function(err) {
+                // Setting read failed. Log it so the problem is visible, then
+                // remove the input so incorrect data is not shown or saved.
+                console.error('Failed to read setting "' + settingName + '":', err);
+                var parent = input.parents('.setting-container:first');
+                if (parent.length == 0) {
+                    parent = input.parent();
+                }
+                parent.remove();
             });
         });
     };
@@ -623,10 +633,15 @@ var Settings = (function () {
     };
 
     self.pickAndSaveSingleInput = function(inputs, finalCallback) {
+        // Skip inputs whose settings failed to load (null settingPair), using a
+        // loop rather than recursion to avoid stack growth for large null runs.
+        while (inputs.length > 0 && !self.processInput(inputs[0])) {
+            inputs.shift();
+        }
         if (inputs.length > 0) {
             var input = inputs.shift();
             var settingPair = self.processInput(input);
-            return mspHelper.setSetting(settingPair.setting, settingPair.value, function() {       
+            return mspHelper.setSetting(settingPair.setting, settingPair.value, function() {
                 return self.pickAndSaveSingleInput(inputs, finalCallback);
             });
         } else {
