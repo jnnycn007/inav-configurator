@@ -17,7 +17,7 @@ advancedTuningTab.initialize = function (callback) {
         GUI.active_tab = this;
     }
 
-    var loadChainer = new MSPChainerClass();
+    const loadChainer = new MSPChainerClass();
     loadChainer.setChain([mspHelper.loadMixerConfig]);
     loadChainer.setExitPoint(load_html);
     loadChainer.execute();
