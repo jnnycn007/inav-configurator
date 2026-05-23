@@ -67,7 +67,7 @@ advancedTuningTab.initialize = function (callback) {
 
         GUI.simpleBind();
 
-        i18n.localize();;
+        i18n.localize();
         
         // Set up required field warnings
         $('#launchIdleThr').on('keyup', () => {
