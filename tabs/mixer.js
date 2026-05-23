@@ -849,6 +849,12 @@ mixerTab.initialize = function (callback, scrollPosition) {
 
         interval.add('logic_conditions_pull', getLogicConditionsStatus, 350);
 
+        // configureInputs() populates radio buttons asynchronously via MSP.
+        // The synchronous $mixerPreset.trigger('change') above fires before
+        // those requests complete, so re-run once the real values are in.
+        settingsPromise.then(() => updateMotorDirection())
+            .catch((error) => console.error('Settings load failed, motor direction not updated:', error));
+
         GUI.content_ready(callback);
     }
 
