@@ -408,9 +408,9 @@ mixerTab.initialize = function (callback, scrollPosition) {
 
     function updateFixedValueVisibility(row, $mixRuleInput) {
 
-        // Show the fixed value input box if "MAX" input was selected for this servo
+        // Show the fixed value input box if "Fixed Value" input was selected for this servo
         const $fixedValueCalcInput = row.find(".mix-rule-fixed-value");
-        if (FC.getServoMixInputNames()[$mixRuleInput.val()] === 'MAX') {
+        if (FC.getServoMixInputNames()[$mixRuleInput.val()] === 'Fixed Value') {
             $fixedValueCalcInput.show();
         } else {
             $fixedValueCalcInput.hide();
@@ -422,7 +422,7 @@ mixerTab.initialize = function (callback, scrollPosition) {
         const rules = FC.SERVO_RULES.get();
         for (let servoRuleIndex in rules) {
             if (rules.hasOwnProperty(servoRuleIndex)) {
-                if (FC.getServoMixInputNames()[rules[servoRuleIndex].getInput()] === 'MAX') {
+                if (FC.getServoMixInputNames()[rules[servoRuleIndex].getInput()] === 'Fixed Value') {
                     $fixedValueCol.show();
                     return;
                 }
