@@ -4,7 +4,7 @@ import MSPChainerClass from './../js/msp/MSPchainer';
 import mspHelper from './../js/msp/MSPHelper';
 import MSPCodes from './../js/msp/MSPCodes';
 import MSP from './../js/msp';
-import { GUI, TABS } from './../js/gui';
+import GUI from './../js/gui';
 import FC from './../js/fc';
 import i18n from './../js/localization';
 import { mixer, platform, PLATFORM, INPUT, STABILIZED } from './../js/model';
@@ -14,9 +14,9 @@ import interval from './../js/intervals';
 import ServoMixRule from './../js/servoMixRule';
 import MotorMixRule from './../js/motorMixRule';
 
-TABS.mixer = {};
+const mixerTab = {};
 
-TABS.mixer.initialize = function (callback, scrollPosition) {
+mixerTab.initialize = function (callback, scrollPosition) {
 
     let loadChainer = new MSPChainerClass(),
         saveChainer = new MSPChainerClass(),
@@ -30,8 +30,8 @@ TABS.mixer.initialize = function (callback, scrollPosition) {
         modal,
         motorWizardModal;
 
-    if (GUI.active_tab != 'mixer') {
-        GUI.active_tab = 'mixer';
+    if (GUI.active_tab !== this) {
+        GUI.active_tab = this;
     }
 
     loadChainer.setChain([
@@ -569,7 +569,7 @@ TABS.mixer.initialize = function (callback, scrollPosition) {
         saveChainer.execute();
     }
 
-    function processHtml() {
+    function processHtml(settingsPromise) {
 
         $servoMixTable = $('#servo-mix-table');
         $servoMixTableBody = $servoMixTable.find('tbody');
@@ -724,14 +724,14 @@ TABS.mixer.initialize = function (callback, scrollPosition) {
             }
 
             if (FC.MIXER_CONFIG.platformType == PLATFORM.MULTIROTOR || FC.MIXER_CONFIG.platformType == PLATFORM.TRICOPTER) {
-                $('#motor_direction_inverted').parent().removeClass("is-hidden");
+                $('#motor_direction_container').removeClass("is-hidden");
                 $('#platform-type').parent('.select').removeClass('no-bottom-border');
             } else {
-                $('#motor_direction_inverted').parent().addClass("is-hidden");
+                $('#motor_direction_container').addClass("is-hidden");
                 $('#platform-type').parent('.select').addClass('no-bottom-border');
             }
 
-            if (!GUI.updateEzTuneTabVisibility(false)) {
+            if (FC.MIXER_CONFIG.platformType !== PLATFORM.MULTIROTOR && FC.MIXER_CONFIG.platformType !== PLATFORM.TRICOPTER) {
                 FC.EZ_TUNE.enabled = 0;
                 mspHelper.saveEzTune();
             }
@@ -747,6 +747,9 @@ TABS.mixer.initialize = function (callback, scrollPosition) {
         } else {
             $mixerPreset.trigger('change');
         }
+
+        // Re-run after settings load, since configureInputs() is async.
+        settingsPromise.then(() => updateMotorDirection());
 
         modal = new jBox('Modal', {
             width: 480,
@@ -846,6 +849,12 @@ TABS.mixer.initialize = function (callback, scrollPosition) {
 
         interval.add('logic_conditions_pull', getLogicConditionsStatus, 350);
 
+        // configureInputs() populates radio buttons asynchronously via MSP.
+        // The synchronous $mixerPreset.trigger('change') above fires before
+        // those requests complete, so re-run once the real values are in.
+        settingsPromise.then(() => updateMotorDirection())
+            .catch((error) => console.error('Settings load failed, motor direction not updated:', error));
+
         GUI.content_ready(callback);
     }
 
@@ -870,9 +879,11 @@ TABS.mixer.initialize = function (callback, scrollPosition) {
 
 };
 
-TABS.mixer.cleanup = function (callback) {
+mixerTab.cleanup = function (callback) {
     //delete modal;
     //delete motorWizardModal;
     $('.jBox-wrapper').remove();
     if (callback) callback();
 };
+
+export default mixerTab;
