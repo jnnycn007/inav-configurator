@@ -693,6 +693,12 @@
     padding-bottom: 0 i !important;
 }
 
+@media only screen and (max-width: 1439px) {
+    .tab-osd .content_wrapper {
+        padding: 10px;
+    }
+}
+
 @media only screen and (max-width: 1055px) , only screen and (max-device-width: 1055px) {
     .tab-osd .content_wrapper {
         height: calc(100% - 30px);
@@ -784,6 +790,8 @@
     width: 16px;
     text-align: center;
 }
+
+.osd_group { max-width: 300px; }
 
 .ce-card-body {
     padding: 8px 10px;
