@@ -14,6 +14,19 @@ on:
     #   type: boolean
 
 jobs:
+    save-pr-number:
+        runs-on: ubuntu-latest
+        # Only needed for pull_request events; workflow_call (release builds) skips this.
+        if: github.event_name == 'pull_request'
+        steps:
+            - name: Save PR number
+              run: echo "${{ github.event.pull_request.number }}" > pr_number.txt
+            - name: Upload PR number artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: pr-number
+                path: pr_number.txt
+
     build-linux:
         runs-on: ubuntu-24.04
         steps:
