@@ -765,7 +765,6 @@
 .ce-card-name {
     font-weight: bold;
     font-size: 12px;
-    white-space: nowrap;
 }
 
 .ce-card-preview {
@@ -802,15 +801,6 @@
     margin-bottom: 0;
 }
 
-.ce-source-select {
-    width: auto !important;
-    flex-shrink: 0;
-}
-
-.ce-format-select {
-    width: auto !important;
-    flex-shrink: 0;
-}
 
 .ce-slot-value {
     flex: 1;
