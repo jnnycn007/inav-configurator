@@ -3891,10 +3891,10 @@ function buildSlotRow(i, ii) {
     for (var fi = 0; fi < OSD.constants.CE_FORMATS.length; fi++) {
         formatHtml += '<option value="' + fi + '">' + OSD.constants.CE_FORMATS[fi].label + '</option>';
     }
-    var $formatSelect = $('<select>').addClass('ce-format-select').html(formatHtml);
+    const $formatSelect = $('<select>').addClass('ce-format-select').html(formatHtml);
 
     // Format row — shown only when source is GV (5) or LC (6)
-    var $fmtRow = $('<div>').addClass('ce-slot-row').hide().append($formatSelect);
+    const $fmtRow = $('<div>').addClass('ce-slot-row').hide().append($formatSelect);
 
     // Forward bridge: visible source/format → hidden type
     function updateHiddenType() {
