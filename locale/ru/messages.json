@@ -6330,7 +6330,7 @@
     "osdElement_GLIDE_RANGE": {
         "message": "Дистанция планирования"
     },
-    "osdElement_MISSION INFO": {
+    "osdElement_MISSION_INFO": {
         "message": "Информация о миссии"
     },
     "osdElement_VERSION": {
