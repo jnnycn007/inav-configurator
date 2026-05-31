@@ -1161,7 +1161,7 @@ OSD.constants = {
                     preview: FONT.symbol(SYM.PAN_SERVO_IS_OFFSET_L) + '120' + FONT.symbol(SYM.DEGREES)
                 },
                 {
-                    name: 'MISSION INFO',
+                    name: 'MISSION_INFO',
                     id: 129,
                     min_version: '4.0.0',
                     preview: 'M1/6>101WP'
