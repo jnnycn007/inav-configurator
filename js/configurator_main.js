@@ -704,12 +704,14 @@ $(function() {
             
             const mixerprofile = parseInt($(this).val());
             MSP.send_message(MSPCodes.MSP2_INAV_SELECT_MIXER_PROFILE, [mixerprofile], false, function () {
-                GUI.tab_switch_cleanup(function() {
-                    GUI.log(i18n.getMessage('setMixerProfile', [mixerprofile + 1]));
-                    GUI.log(i18n.getMessage('deviceRebooting'));
-                    GUI.handleReconnect(true);
-                    // This order! Why? ¯\_(ツ)_/¯
-                    MSP.send_message(MSPCodes.MSP_SET_REBOOT, false, false);
+                MSP.send_message(MSPCodes.MSP_SELECT_SETTING, [mixerprofile], false, function () {
+                    GUI.tab_switch_cleanup(function() {
+                        GUI.log(i18n.getMessage('setMixerProfile', [mixerprofile + 1]));
+                        GUI.log(i18n.getMessage('deviceRebooting'));
+                        GUI.handleReconnect(true);
+                        // This order! Why? ¯\_(ツ)_/¯
+                        MSP.send_message(MSPCodes.MSP_SET_REBOOT, false, false);
+                    });
                 });
             });
         });
