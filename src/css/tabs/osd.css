@@ -693,6 +693,12 @@
     padding-bottom: 0 i !important;
 }
 
+@media only screen and (max-width: 1439px) {
+    .tab-osd .content_wrapper {
+        padding: 6px;
+    }
+}
+
 @media only screen and (max-width: 1055px) , only screen and (max-device-width: 1055px) {
     .tab-osd .content_wrapper {
         height: calc(100% - 30px);
@@ -765,7 +771,6 @@
 .ce-card-name {
     font-weight: bold;
     font-size: 12px;
-    white-space: nowrap;
 }
 
 .ce-card-preview {
@@ -786,6 +791,8 @@
     text-align: center;
 }
 
+.osd_group { max-width: 300px; }
+
 .ce-card-body {
     padding: 8px 10px;
     border-top: 1px solid #eee;
@@ -802,15 +809,6 @@
     margin-bottom: 0;
 }
 
-.ce-source-select {
-    width: auto !important;
-    flex-shrink: 0;
-}
-
-.ce-format-select {
-    width: auto !important;
-    flex-shrink: 0;
-}
 
 .ce-slot-value {
     flex: 1;
