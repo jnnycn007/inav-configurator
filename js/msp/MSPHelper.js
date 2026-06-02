@@ -109,9 +109,7 @@ var mspHelper = (function () {
                 }
                 FC.CONFIG.mixer_profile = mixer_profile;
                 GUI.updateStatusBar();
-                if (profile_changed > 0) {
-                    GUI.updateProfileChange(profile_changed);
-                }
+                GUI.updateProfileChange(profile_changed);
                 break;
 
             case MSPCodes.MSP_ACTIVEBOXES:
