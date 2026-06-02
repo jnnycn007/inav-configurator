@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showOpenDialog: (options) => ipcRenderer.invoke('dialog.showOpenDialog', options),
   showSaveDialog: (options) => ipcRenderer.invoke('dialog.showSaveDialog', options),
   alertDialog: (message) => ipcRenderer.sendSync('dialog.alert', message),
-  confirmDialog: (message) => ipcRenderer.sendSync('dialog.confirm', message),
+  confirmDialog: (message) => ipcRenderer.invoke('dialog.confirm', message),
   tcpConnect: (host, port) => ipcRenderer.invoke('tcpConnect', host, port),
   tcpClose: () => ipcRenderer.send('tcpClose'),
   tcpSend: (data) => ipcRenderer.invoke('tcpSend', data),

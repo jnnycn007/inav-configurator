@@ -5,6 +5,7 @@ import 'jquery-ui-dist/jquery-ui';
 import * as THREE from 'three'
 
 import GUI from './gui';
+import interval from './intervals';
 import CONFIGURATOR from './data_storage';
 import FC  from './fc';
 import { globalSettings, UnitType } from './globalSettings';
@@ -695,22 +696,27 @@ $(function() {
 
         var mixerprofile_e = $('#mixerprofilechange');
 
-        mixerprofile_e.on('change', function () {
-            if (!dialog.confirm(i18n.getMessage("changeMixerProfileReboot"))) 
+        mixerprofile_e.on('change', async function () {
+            const mixerprofile = parseInt($(this).val());
+            const previousMixerProfile = FC.CONFIG.mixer_profile;
+            if (!await dialog.confirm(i18n.getMessage("changeMixerProfileReboot")))
             {
-                $(this).val(FC.CONFIG.mixer_profile)
+                $(this).val(previousMixerProfile)
                 return;
             }
-            
-            const mixerprofile = parseInt($(this).val());
+            // Must remove before tab_switch_cleanup: killAll keeps global_data_refresh
+            // alive for normal tab switches, but the MSP chain below must not be interrupted.
+            interval.remove('global_data_refresh');
             MSP.send_message(MSPCodes.MSP2_INAV_SELECT_MIXER_PROFILE, [mixerprofile], false, function () {
                 MSP.send_message(MSPCodes.MSP_SELECT_SETTING, [mixerprofile], false, function () {
-                    GUI.tab_switch_cleanup(function() {
-                        GUI.log(i18n.getMessage('setMixerProfile', [mixerprofile + 1]));
-                        GUI.log(i18n.getMessage('deviceRebooting'));
-                        GUI.handleReconnect(true);
-                        // This order! Why? ¯\_(ツ)_/¯
-                        MSP.send_message(MSPCodes.MSP_SET_REBOOT, false, false);
+                    MSP.send_message(MSPCodes.MSP_EEPROM_WRITE, false, false, function () {
+                        GUI.tab_switch_cleanup(function() {
+                            GUI.log(i18n.getMessage('setMixerProfile', [mixerprofile + 1]));
+                            GUI.log(i18n.getMessage('deviceRebooting'));
+                            GUI.handleReconnect(true);
+                            // This order! Why? ¯\_(ツ)_/¯
+                            MSP.send_message(MSPCodes.MSP_SET_REBOOT, false, false);
+                        });
                     });
                 });
             });
