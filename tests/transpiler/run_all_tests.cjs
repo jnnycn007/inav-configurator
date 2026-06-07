@@ -10,6 +10,19 @@ const testFiles = fs.readdirSync(testDir)
   .filter(f => f.endsWith('.test.cjs'))
   .sort();
 
+// Detect .cjs files with "test" in the name that won't be discovered by the *.test.cjs glob.
+// These are likely test files with the wrong suffix (e.g. foo_test.cjs instead of foo.test.cjs).
+const nonRunners = ['run_all_tests.cjs', 'simple_test_runner.cjs'];
+const orphaned = fs.readdirSync(testDir)
+  .filter(f => f.endsWith('.cjs') && f.includes('test') && !f.endsWith('.test.cjs') && !nonRunners.includes(f));
+
+if (orphaned.length > 0) {
+  console.error('⚠️  ERROR: .cjs files with "test" in their name that are NOT discovered by *.test.cjs:');
+  orphaned.forEach(f => console.error(`   ${f}  (rename to ${f.replace(/_test\.cjs$/, '.test.cjs').replace(/test_/, '')})`));
+  console.error('These tests will NOT run. Fix the filename before proceeding.\n');
+  process.exit(1);
+}
+
 console.log('🧪 Running Full Transpiler Test Suite\n');
 
 let passed = 0;
