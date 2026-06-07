@@ -132,8 +132,8 @@ describe('Const Support Tests', () => {
     const summary = analyzer.variableHandler.getAllocationSummary();
 
     expect(summary).toBeDefined();
-    // No gvar slots should be allocated for const variables
-    expect(summary.allocatedToVars || 0).toBe(0);
+    // const variables must not count as var declarations (no gvar slots)
+    expect(summary.varCount).toBe(0);
   });
 });
 

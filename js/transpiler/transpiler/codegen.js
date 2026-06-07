@@ -1009,7 +1009,7 @@ class INAVCodeGenerator {
         // These happen when AST references other variables that were also inlined
         if (expression.includes('undefined') || expression.includes('/* unknown expression */')) {
           // Still store the variable, but with a placeholder expression
-          // lcIndex is only present for variables that generated LC output (not inlined)
+          // Inlined let variables are folded into their use sites and never allocated an LC slot, so they have no lcIndex.
           const entry = {
             expression: '/* expression unavailable */',
             type: 'let'

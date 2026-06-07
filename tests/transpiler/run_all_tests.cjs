@@ -33,6 +33,7 @@ for (const testFile of testFiles) {
   } catch (error) {
     console.log('❌');
     failed++;
+    // simple_test_runner writes all output to stdout; use message as fallback for crashes
     failures.push({ test: testName, error: error.stdout || error.message });
   }
 }
