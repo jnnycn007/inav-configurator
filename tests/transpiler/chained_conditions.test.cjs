@@ -7,7 +7,7 @@
 
 'use strict';
 
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 
 let Decompiler;
 
@@ -203,4 +203,8 @@ describe('Chained Conditions', () => {
   });
 });
 
+
+if (require.main === module) {
+    loadDecompiler().then(() => runner.run()).catch(err => { console.error(err); process.exit(1); });
+}
 module.exports = { loadDecompiler };

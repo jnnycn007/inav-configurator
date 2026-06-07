@@ -8,6 +8,8 @@
 
 'use strict';
 
+const { runner } = require('./simple_test_runner.cjs');
+
 const { Transpiler } = require('../../js/transpiler/transpiler/index.js');
 
 describe('Auto-Insert INAV Import', () => {
@@ -184,3 +186,7 @@ describe('Auto-Import Integration with Transpiler', () => {
     expect(result.success).toBe(true);
   });
 });
+
+if (require.main === module) {
+    runner.run().catch(err => { console.error(err); process.exit(1); });
+}

@@ -6,6 +6,8 @@
 
 'use strict';
 
+const { runner } = require('./simple_test_runner.cjs');
+
 // Import transpiler components
 const { JavaScriptParser } = require('../../js/transpiler/transpiler/parser.js');
 const { SemanticAnalyzer } = require('../../js/transpiler/transpiler/analyzer.js');
@@ -363,3 +365,7 @@ describe('Let and Var Mixed Usage', () => {
     expect(gvarIndex).toBe(7);
   });
 });
+
+if (require.main === module) {
+    runner.run().catch(err => { console.error(err); process.exit(1); });
+}

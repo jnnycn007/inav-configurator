@@ -14,7 +14,7 @@
 'use strict';
 
 // Import test utilities - sets up global describe, test, beforeEach, expect
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 
 let JavaScriptParser;
 let ArrowFunctionHelper;
@@ -413,4 +413,8 @@ describe('extractValue() - Shared expression_utils module', () => {
 });
 
 // Export loadModules for the test runner
+
+if (require.main === module) {
+    loadModules().then(() => runner.run()).catch(err => { console.error(err); process.exit(1); });
+}
 module.exports = { loadModules };

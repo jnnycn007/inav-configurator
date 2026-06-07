@@ -4,6 +4,8 @@
 
 'use strict';
 
+const { runner } = require('./simple_test_runner.cjs');
+
 // Import transpiler components
 const { JavaScriptParser } = require('../../js/transpiler/transpiler/parser.js');
 const { SemanticAnalyzer } = require('../../js/transpiler/transpiler/analyzer.js');
@@ -36,10 +38,9 @@ describe('Const Support Tests', () => {
 
   test('const in condition', () => {
     const code = `
-      const { flight } = inav;
       const threshold = 1000;
 
-      if (flight.altitude > threshold) {
+      if (inav.flight.altitude > threshold) {
         gvar[0] = 1;
       }
     `;
@@ -135,3 +136,7 @@ describe('Const Support Tests', () => {
     expect(summary.allocatedToVars || 0).toBe(0);
   });
 });
+
+if (require.main === module) {
+    runner.run().catch(err => { console.error(err); process.exit(1); });
+}

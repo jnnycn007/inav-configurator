@@ -7,7 +7,7 @@
 
 'use strict';
 
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 
 let JavaScriptParser;
 let SemanticAnalyzer;
@@ -135,4 +135,8 @@ describe('Nested If Statements', () => {
   });
 });
 
+
+if (require.main === module) {
+    loadModules().then(() => runner.run()).catch(err => { console.error(err); process.exit(1); });
+}
 module.exports = { loadModules };

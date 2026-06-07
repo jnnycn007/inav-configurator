@@ -7,7 +7,7 @@
  * This addresses Qodo comment #2 from PR #2490
  */
 
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 const { Transpiler } = require('../../js/transpiler/transpiler/index.js');
 
 describe('Flight Axis Override', () => {
@@ -72,3 +72,7 @@ describe('Flight Axis Override', () => {
     expect(result.success).toBe(true);
   });
 });
+
+if (require.main === module) {
+    runner.run().catch(err => { console.error(err); process.exit(1); });
+}

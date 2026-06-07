@@ -7,7 +7,7 @@
 'use strict';
 
 // Import test utilities
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 
 // We need to dynamically import the ESM module
 let Decompiler;
@@ -905,4 +905,8 @@ describe('LC Line Mapping - duplicate if-statements', () => {
 });
 
 // Export the load function for the runner
+
+if (require.main === module) {
+    loadDecompiler().then(() => runner.run()).catch(err => { console.error(err); process.exit(1); });
+}
 module.exports = { loadDecompiler };

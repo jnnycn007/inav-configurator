@@ -7,7 +7,7 @@ const path = require('path');
 
 const testDir = __dirname;
 const testFiles = fs.readdirSync(testDir)
-  .filter(f => f.startsWith('run_') && f.endsWith('.cjs') && f !== 'run_all_tests.cjs')
+  .filter(f => f.endsWith('.test.cjs'))
   .sort();
 
 console.log('🧪 Running Full Transpiler Test Suite\n');
@@ -18,7 +18,7 @@ const failures = [];
 
 for (const testFile of testFiles) {
   const testPath = path.join(testDir, testFile);
-  const testName = testFile.replace('run_', '').replace('_tests.cjs', '').replace(/_/g, ' ');
+  const testName = testFile.replace('.test.cjs', '').replace(/_/g, ' ');
 
   process.stdout.write(`Testing ${testName}... `);
 

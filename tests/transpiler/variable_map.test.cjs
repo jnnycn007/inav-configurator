@@ -9,6 +9,8 @@
 
 'use strict';
 
+const { runner } = require('./simple_test_runner.cjs');
+
 const { INAVCodeGenerator } = require('../../js/transpiler/transpiler/codegen.js');
 const { VariableHandler } = require('../../js/transpiler/transpiler/variable_handler.js');
 
@@ -27,7 +29,8 @@ describe('Variable Map Building', () => {
 
       expect(map).toEqual({
         let_variables: {},
-        var_variables: {}
+        var_variables: {},
+        latch_variables: {}
       });
     });
 
@@ -37,7 +40,8 @@ describe('Variable Map Building', () => {
 
       expect(map).toEqual({
         let_variables: {},
-        var_variables: {}
+        var_variables: {},
+        latch_variables: {}
       });
     });
 
@@ -261,3 +265,7 @@ describe('Variable Map with Decompiler Integration', () => {
     expect(declarations).toContain('let current_alt = flight.altitude;');
   });
 });
+
+if (require.main === module) {
+    runner.run().catch(err => { console.error(err); process.exit(1); });
+}

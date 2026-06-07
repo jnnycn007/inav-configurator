@@ -11,7 +11,7 @@
 
 'use strict';
 
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 
 const { OPERATION } = require('../../js/transpiler/transpiler/inav_constants.js');
 
@@ -181,4 +181,8 @@ describe('NAND/NOR Pattern Recognition', () => {
   });
 });
 
+
+if (require.main === module) {
+    loadTranspiler().then(() => runner.run()).catch(err => { console.error(err); process.exit(1); });
+}
 module.exports = { loadTranspiler };

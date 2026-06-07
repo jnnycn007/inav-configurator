@@ -8,6 +8,8 @@
 
 'use strict';
 
+const { runner } = require('./simple_test_runner.cjs');
+
 const { VariableHandler } = require('../../js/transpiler/transpiler/variable_handler.js');
 
 describe('VariableHandler', () => {
@@ -523,3 +525,7 @@ describe('VariableHandler', () => {
     });
   });
 });
+
+if (require.main === module) {
+    runner.run().catch(err => { console.error(err); process.exit(1); });
+}

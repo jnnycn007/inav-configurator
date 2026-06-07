@@ -6,7 +6,7 @@
  * Tests for consistent namespace-based routing and validation
  */
 
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 const { Transpiler } = require('../../js/transpiler/transpiler/index.js');
 
 describe('Namespace Validation', () => {
@@ -171,3 +171,7 @@ describe('Namespace Validation', () => {
     expect(result.success).toBe(true);
   });
 });
+
+if (require.main === module) {
+    runner.run().catch(err => { console.error(err); process.exit(1); });
+}

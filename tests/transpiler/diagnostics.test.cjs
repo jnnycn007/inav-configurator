@@ -7,7 +7,7 @@
 
 'use strict';
 
-require('./simple_test_runner.cjs');
+const { runner } = require('./simple_test_runner.cjs');
 
 const fs = require('fs');
 const path = require('path');
@@ -76,4 +76,8 @@ describe('Diagnostics', () => {
 
 });
 
+
+if (require.main === module) {
+    loadModules().then(() => runner.run()).catch(err => { console.error(err); process.exit(1); });
+}
 module.exports = { loadModules };
