@@ -99,6 +99,7 @@ describe('proceedWithFlash clears stale auto-backup', () => {
 describe('_enterCli removes and nulls callback before resolving', () => {
     test('removeOnReceiveCallback and null assignment come before resolve()', () => {
         const src = readFileSync(resolve(root, 'js/backup_restore.js'), 'utf8');
+        // Relies on the _enterCli() definition appearing before _sendCommand() in the file
         const enterCliStart = src.indexOf('_enterCli()');
         const sendCommandStart = src.indexOf('_sendCommand(command)');
         const body = src.slice(enterCliStart, sendCommandStart);

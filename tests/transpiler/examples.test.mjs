@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import examples from '../../js/transpiler/examples/index.js';
 import { Transpiler } from '../../js/transpiler/transpiler/index.js';
 
+assert.ok(Object.keys(examples).length > 0, 'examples index must not be empty');
+
 for (const [name, example] of Object.entries(examples)) {
     test(`transpiler example: ${name}`, () => {
         const transpiler = new Transpiler();
