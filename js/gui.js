@@ -477,6 +477,9 @@ GUI_control.prototype.update_dataflash_global = function () {
         width: (100-(FC.DATAFLASH.totalSize - FC.DATAFLASH.usedSize) / FC.DATAFLASH.totalSize * 100) + "%",
         display: 'block'
         });
+        $(".dataflash-free_global_label").css({
+        display: 'block'
+        });
         $(".dataflash-free_global_label").html(i18n.getMessage('sensorDataFlashFreeSpace') + formatFilesize(FC.DATAFLASH.totalSize - FC.DATAFLASH.usedSize) + " free");
     } else {
         $(".noflash_global").css({
@@ -484,6 +487,10 @@ GUI_control.prototype.update_dataflash_global = function () {
         });
 
         $(".dataflash-contents_global").css({
+        display: 'none'
+        });
+
+        $(".dataflash-free_global_label").css({
         display: 'none'
         });
     }
