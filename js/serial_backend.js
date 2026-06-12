@@ -166,7 +166,7 @@ var SerialBackend = (function () {
 
                 // Use the real connection state, not a toggle flag that competing
                 // async aborts could desync.
-                var isConnectedOrConnecting = (GUI.connected_to !== false) || (GUI.connecting_to !== false);
+                const isIdle = (GUI.connected_to === false) && (GUI.connecting_to === false);
                 var selected_baud = parseInt(privateScope.$baud.val());
                 var selected_port = privateScope.$port.find('option:selected').data().isManual ?
                     publicScope.$portOverride.val() :
@@ -176,7 +176,7 @@ var SerialBackend = (function () {
                     GUI.log(i18n.getMessage('dfu_connect_message'));
                 }
                 else if (selected_port != '0') {
-                    if (!isConnectedOrConnecting) {
+                    if (isIdle) {
                         console.log('Connecting to: ' + selected_port);
                         GUI.connecting_to = selected_port;
 

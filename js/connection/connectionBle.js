@@ -106,7 +106,7 @@ class ConnectionBle extends Connection {
                 if (this._readCharacteristic && this._handleOnCharateristicValueChanged) {
                     this._readCharacteristic.removeEventListener('characteristicvaluechanged', this._handleOnCharateristicValueChanged);
                 }
-                if (this._device.gatt && this._device.gatt.connected) {
+                if (this._device.gatt?.connected) {
                     this._device.gatt.disconnect();
                 }
             } catch (e) {
@@ -239,8 +239,12 @@ class ConnectionBle extends Connection {
         }
     }
 
-    async sendImplementation (data, callback) {
-        if (!this._writeCharacteristic || !this._device || !this._device.gatt || !this._device.gatt.connected) {
+    sendImplementation(data, callback) {
+        void this._writeChunks(data, callback);
+    }
+
+    async _writeChunks(data, callback) {
+        if (!this._writeCharacteristic || !this._device?.gatt?.connected) {
             if (callback) {
                 callback({ bytesSent: 0, resultCode: 1 });
             }
@@ -248,16 +252,16 @@ class ConnectionBle extends Connection {
         }
 
         let sent = 0;
-        let dataBuffer = new Uint8Array(data);
+        const dataBuffer = new Uint8Array(data);
         try {
-            for (var i = 0; i < dataBuffer.length; i += BLE_WRITE_BUFFER_LENGTH) {
-                var length = BLE_WRITE_BUFFER_LENGTH;
+            for (let i = 0; i < dataBuffer.length; i += BLE_WRITE_BUFFER_LENGTH) {
+                let length = BLE_WRITE_BUFFER_LENGTH;
 
                 if (i + BLE_WRITE_BUFFER_LENGTH > dataBuffer.length) {
                     length = dataBuffer.length % BLE_WRITE_BUFFER_LENGTH;
                 }
 
-                var outBuffer = dataBuffer.subarray(i, i + length);
+                const outBuffer = dataBuffer.subarray(i, i + length);
                 sent += outBuffer.length;
                 await this._writeCharacteristic.writeValue(outBuffer);
             }

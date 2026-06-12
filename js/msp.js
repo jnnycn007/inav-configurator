@@ -400,8 +400,7 @@ var MSP = {
         }
         if (message.putRetries > 0) {
             message.putRetries--;
-            var self = this;
-            setTimeout(function () { self._enqueue(message); }, 150);
+            setTimeout(() => this._enqueue(message), 150);
         } else if (message.onFinish) {
             // Give up rather than hang forever; let the caller's chain proceed.
             message.onFinish(false);
