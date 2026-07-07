@@ -177,7 +177,7 @@ https://hub.docker.com/r/yagajs/mapproxy/ Docker image
     ```
 1. You can use any map provider that is compatible with MapProxy, and once you zoom in on the region you will be flying in, the map tiles will be cached for offline use. You can test this by disabling your internet connection and browsing the demo URL in a browser
 	  
-    https://wiki.openstreetmap.org/wiki/WMS#OSM_WMS_Servers OpenStreetMap WSM servers 
+    https://wiki.openstreetmap.org/wiki/WMS#OSM_WMS_Servers OpenStreetMap WMS servers 
 	  
     https://lpdaac.usgs.gov/data_access/web_map_services_wms # USGS currently has 400+ WMS layers
     
